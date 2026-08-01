@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu, Search, User, ShoppingCart, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useCompany } from "@/hooks/useCompany";
+import { useAppCustomization } from "@/lib/appSettings";
 
 const links = [
   { to: "/home", label: "Home" },
@@ -21,6 +22,19 @@ export const Navbar = () => {
   const loc = useLocation();
   const { count, setOpen: setCartOpen } = useCart();
   const { company } = useCompany();
+  const app = useAppCustomization();
+
+  const navBg: Record<string, string> = {
+    light: "bg-white/95 backdrop-blur-xl border-b border-gray-200",
+    glass: "bg-white/60 backdrop-blur-2xl border-b border-white/30",
+    dark:  "bg-gray-950/95 backdrop-blur-xl border-b border-white/10",
+  };
+  const navText: Record<string, string> = {
+    light: "text-gray-900",
+    glass: "text-gray-900",
+    dark:  "text-white",
+  };
+  const style = app.navStyle ?? "light";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -35,7 +49,7 @@ export const Navbar = () => {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl transition-all duration-300 border-b border-gray-200 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${navBg[style]} ${navText[style]} ${
         scrolled ? "shadow-lg" : ""
       }`}
     >
@@ -48,7 +62,7 @@ export const Navbar = () => {
               <img src="/favicon.ico" alt="Logo" className="w-full h-full object-cover" />
             )}
           </div>
-          <span className="font-display font-extrabold text-lg leading-tight text-gray-900 uppercase tracking-tight">
+          <span className={`font-display font-extrabold text-lg leading-tight uppercase tracking-tight ${navText[style]}`}>
             {company.company_name || "Sanmitha"}
             <span className="block text-[10px] font-semibold tracking-[0.25em] text-primary -mt-0.5">
               Fireworks
@@ -66,6 +80,8 @@ export const Navbar = () => {
                 `relative pb-1 text-sm font-semibold uppercase tracking-wide transition-colors ${
                   isActive
                     ? "text-primary"
+                    : style === "dark"
+                    ? "text-white/80 hover:text-primary"
                     : "text-gray-900/80 hover:text-primary"
                 }`
               }
@@ -85,20 +101,20 @@ export const Navbar = () => {
         </nav>
 
         <div className="flex items-center gap-1">
-          <button className="hidden sm:grid place-items-center w-10 h-10 rounded-full hover:bg-muted transition-colors text-gray-900/70 hover:text-primary">
+          <button className={`hidden sm:grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors hover:text-primary ${style === "dark" ? "text-white/70" : "text-gray-900/70"}`}>
             <Search className="w-4 h-4" />
           </button>
           <Link
             to="/admin/login"
             title="Admin Login"
             aria-label="Admin Login"
-            className="hidden sm:grid place-items-center w-10 h-10 rounded-full hover:bg-muted transition-colors text-gray-900/70 hover:text-primary"
+            className={`hidden sm:grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors hover:text-primary ${style === "dark" ? "text-white/70" : "text-gray-900/70"}`}
           >
             <User className="w-4 h-4" />
           </Link>
           <button
             onClick={() => setCartOpen(true)}
-            className="relative grid place-items-center w-10 h-10 rounded-full hover:bg-muted transition-colors text-gray-900/70 hover:text-primary"
+            className={`relative grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors hover:text-primary ${style === "dark" ? "text-white/70" : "text-gray-900/70"}`}
           >
             <ShoppingCart className="w-4 h-4" />
             {count > 0 && (
@@ -109,7 +125,7 @@ export const Navbar = () => {
           </button>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="lg:hidden grid place-items-center w-10 h-10 rounded-full hover:bg-muted text-gray-900/80"
+            className={`lg:hidden grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 ${style === "dark" ? "text-white/80" : "text-gray-900/80"}`}
             aria-label="Menu"
           >
             {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

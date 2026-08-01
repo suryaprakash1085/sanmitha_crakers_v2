@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react";
 
-type AppCustom = {
+export type AppCustom = {
+  // Theme
   primaryHsl: string;
+  accentSecondaryHsl: string;
+  tagline: string;
+
+  // Typography
   fontFamily: string;
   fontSize: number;
-  tagline: string;
+
+  // Layout & shape
+  borderRadius: number;        // 0–20 → maps to rem on --radius
+  shadowStyle: "none" | "soft" | "strong";
+  navStyle: "light" | "glass" | "dark";
+
+  // Animations & effects
   enableFireworks: boolean;
+  enableFloatingSparks: boolean;
+  sparkSpeed: "slow" | "normal" | "fast";
+
+  // Features
   enableCart: boolean;
   showOffersBanner: boolean;
 };
@@ -127,11 +142,17 @@ const ABOUT_KEY = "about_settings";
 
 const defaults = {
   app: {
-    primaryHsl: "24 95% 53%",
-    fontFamily: "Poppins, system-ui, sans-serif",
-    fontSize: 16,
+    primaryHsl: "330 82% 60%",
+    accentSecondaryHsl: "265 80% 58%",
     tagline: "Light up your celebrations",
+    fontFamily: "Space Grotesk, system-ui, sans-serif",
+    fontSize: 16,
+    borderRadius: 9,
+    shadowStyle: "soft",
+    navStyle: "light",
     enableFireworks: true,
+    enableFloatingSparks: true,
+    sparkSpeed: "normal",
     enableCart: true,
     showOffersBanner: true,
   } as AppCustom,
@@ -269,7 +290,6 @@ const read = <T,>(key: string, fallback: T): T => {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw);
-    // shallow merge one level deep so new fields fall back to defaults
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const merged: any = { ...(fallback as any) };
       for (const k of Object.keys(parsed)) {
@@ -366,11 +386,26 @@ export const useApplyAppCustomization = () => {
   const v = useAppCustomization();
   useEffect(() => {
     const root = document.documentElement;
+    // Colors
     if (v.primaryHsl) root.style.setProperty("--primary", v.primaryHsl);
+    if (v.accentSecondaryHsl) root.style.setProperty("--secondary", v.accentSecondaryHsl);
+    // Typography
     root.style.setProperty("--app-font", v.fontFamily);
     root.style.setProperty("--app-font-size", `${v.fontSize}px`);
     document.body.style.fontFamily = v.fontFamily;
     document.body.style.fontSize = `${v.fontSize}px`;
+    // Border radius
+    root.style.setProperty("--radius", `${(v.borderRadius ?? 9) / 10}rem`);
+    // Shadows
+    const shadows: Record<string, string> = {
+      none:   "0 1px 3px rgba(15,23,42,0.06)",
+      soft:   "0 18px 48px -20px rgba(15,23,42,0.15)",
+      strong: "0 24px 64px -16px rgba(15,23,42,0.28)",
+    };
+    root.style.setProperty("--shadow-card", shadows[v.shadowStyle ?? "soft"]);
+    // Spark speed → CSS animation duration multiplier via custom prop
+    const speedMap: Record<string, string> = { slow: "1.8", normal: "1", fast: "0.5" };
+    root.style.setProperty("--spark-speed", speedMap[v.sparkSpeed ?? "normal"]);
   }, [v]);
 };
 
