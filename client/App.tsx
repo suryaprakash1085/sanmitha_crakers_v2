@@ -32,6 +32,7 @@ import AdminPdfTemplate from "./pages/admin/PdfTemplate.tsx";
 import AdminEmailSettings from "./pages/admin/EmailSettings.tsx";
 import AdminAccessControl from "./pages/admin/AccessControl.tsx";
 import AdminReport from "./pages/admin/Report.tsx";
+import AdminContactSubmissions from "./pages/admin/ContactSubmissions.tsx";
 
 import { useApplyAppCustomization } from "@/lib/appSettings";
 
@@ -72,6 +73,7 @@ const AppRoutes = () => {
         <Route path="/admin/email-settings" element={<AdminLayout><AdminEmailSettings /></AdminLayout>} />
 
          <Route path="/admin/access-control" element={<AdminLayout><AdminAccessControl /></AdminLayout>} />
+        <Route path="/admin/contact-submissions" element={<AdminLayout><AdminContactSubmissions /></AdminLayout>} />
         
         <Route path="*" element={<NotFound />} />
       </Routes>

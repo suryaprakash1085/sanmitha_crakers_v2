@@ -11,6 +11,7 @@ export type AdminPageKey =
   | "services"
   | "users"
   | "company"
+  | "contact-submissions"
   | "home-content"
   | "about-content"
   | "customization"
@@ -27,6 +28,7 @@ export const ADMIN_PAGES: { key: AdminPageKey; label: string; path: string }[] =
   { key: "services", label: "Services", path: "/admin/services" },
   { key: "users", label: "Users", path: "/admin/users" },
   { key: "company", label: "Company", path: "/admin/company" },
+  { key: "contact-submissions", label: "Contact Submissions", path: "/admin/contact-submissions" },
   { key: "home-content", label: "Home Content", path: "/admin/home-content" },
   { key: "about-content", label: "About Content", path: "/admin/about-content" },
   { key: "customization", label: "Customization", path: "/admin/customization" },

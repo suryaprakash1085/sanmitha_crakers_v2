@@ -10,6 +10,7 @@ import dashboardRoutes from "./dashboard.routes";
 import reportRoutes from "./report.routes";
 import emailSettingsRoutes from "./emailSettings.routes";
 import accessControlRoutes from "./accessControl.routes";
+import contactRoutes from "./contact.routes";
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use("/dashboard", dashboardRoutes);
 router.use("/reports", reportRoutes);
 router.use("/email-settings", emailSettingsRoutes);
 router.use("/access-control", accessControlRoutes);
+router.use("/contact", contactRoutes);
 
 export default router;

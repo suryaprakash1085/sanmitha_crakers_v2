@@ -5,19 +5,51 @@ import { FloatingSparks } from "@/components/FloatingSparks";
 import { SparkButton } from "@/components/SparkButton";
 import { Mail, MapPin, Phone, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useCompany } from "@/hooks/useCompany";
 
 const Contact = () => {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    message: "",
-  });
+  const { company } = useCompany();
+  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const contactCards = [
+    {
+      icon: Phone,
+      title: "Call Us",
+      value: company.phone || "+91 123 456 7890",
+    },
+    {
+      icon: Mail,
+      title: "Email Us",
+      value: company.email || "info@firecrackers.com",
+    },
+    {
+      icon: MapPin,
+      title: "Visit Us",
+      value: company.address || "123, Festival Street, Sivakasi, Tamil Nadu, India",
+    },
+  ];
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Message sent. We'll get back to you shortly.");
-    setForm({ name: "", email: "", phone: "", message: "" });
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.success === false) {
+        throw new Error(data.error || "Failed to send message");
+      }
+      toast.success("Message sent! We'll get back to you shortly.");
+      setForm({ name: "", email: "", phone: "", message: "" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send message. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -30,9 +62,7 @@ const Contact = () => {
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-xl mx-auto mb-12"
           >
-            <span className="text-primary font-semibold text-sm">
-              Contact Us
-            </span>
+            <span className="text-primary font-semibold text-sm">Contact Us</span>
             <h1 className="font-display text-4xl md:text-6xl font-bold mt-2 mb-3">
               We're <span className="text-gradient-festive">here to help</span>
             </h1>
@@ -51,9 +81,7 @@ const Contact = () => {
             >
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">
-                    Your Name
-                  </label>
+                  <label className="text-sm font-medium mb-1.5 block">Your Name</label>
                   <input
                     required
                     value={form.name}
@@ -63,25 +91,19 @@ const Contact = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">
-                    Your Email
-                  </label>
+                  <label className="text-sm font-medium mb-1.5 block">Your Email</label>
                   <input
                     required
                     type="email"
                     value={form.email}
-                    onChange={(e) =>
-                      setForm({ ...form, email: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
                     className="input-glow"
                     placeholder="you@example.com"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Your Phone
-                </label>
+                <label className="text-sm font-medium mb-1.5 block">Your Phone</label>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -90,22 +112,18 @@ const Contact = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">
-                  Your Message
-                </label>
+                <label className="text-sm font-medium mb-1.5 block">Your Message</label>
                 <textarea
                   required
                   rows={5}
                   value={form.message}
-                  onChange={(e) =>
-                    setForm({ ...form, message: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, message: e.target.value })}
                   className="input-glow resize-none"
                   placeholder="Tell us how we can help..."
                 />
               </div>
-              <SparkButton type="submit">
-                Send Message <Send className="w-4 h-4" />
+              <SparkButton type="submit" disabled={submitting}>
+                {submitting ? "Sending..." : "Send Message"} <Send className="w-4 h-4" />
               </SparkButton>
             </motion.form>
 
@@ -115,19 +133,7 @@ const Contact = () => {
               viewport={{ once: true }}
               className="space-y-4"
             >
-              {[
-                { icon: Phone, title: "Call Us", value: "+91 123 456 7890" },
-                {
-                  icon: Mail,
-                  title: "Email Us",
-                  value: "info@firecrackers.com",
-                },
-                {
-                  icon: MapPin,
-                  title: "Visit Us",
-                  value: "123, Festival Street, Sivakasi, Tamil Nadu, India",
-                },
-              ].map((c) => (
+              {contactCards.map((c) => (
                 <div
                   key={c.title}
                   className="glass-card rounded-2xl p-5 flex gap-4 items-start hover:-translate-y-0.5 transition"
@@ -137,9 +143,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <div className="font-semibold">{c.title}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {c.value}
-                    </div>
+                    <div className="text-sm text-muted-foreground">{c.value}</div>
                   </div>
                 </div>
               ))}
@@ -150,10 +154,7 @@ const Contact = () => {
                       <span
                         key={i}
                         className="absolute w-px h-px bg-foreground/20"
-                        style={{
-                          left: `${(i * 13) % 100}%`,
-                          top: `${(i * 17) % 100}%`,
-                        }}
+                        style={{ left: `${(i * 13) % 100}%`, top: `${(i * 17) % 100}%` }}
                       />
                     ))}
                   </div>
