@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { ImagePicker } from "@/components/admin/ImagePicker";
 import { api } from "@/lib/api";
 import { usePagePermissions } from "@/hooks/useAccessControl";
+import { notifyCompanyChanged } from "@/hooks/useCompany";
 
 interface CompanyForm {
   company_name: string;
@@ -68,6 +69,7 @@ export default function Company() {
       const res = await api.put<{ data: any }>("/company", form);
       if (res.data) setForm(normalize(res.data));
       toast.success("Company details saved");
+      notifyCompanyChanged(); // refresh Navbar / Footer instantly
     } catch (err: any) {
       toast.error(err.message || "Save failed");
     } finally {
@@ -79,7 +81,12 @@ export default function Company() {
     <div className="space-y-6">
       <PageHeader title="Company Details" description="Update business information" />
       <Card className="p-6 space-y-4 max-w-2xl">
-        <ImagePicker label="Company Logo" value={form.logo} onChange={(v) => setForm({ ...form, logo: v })} />
+        <ImagePicker
+          label="Company Logo"
+          value={form.logo}
+          onChange={(v) => setForm({ ...form, logo: v })}
+          uploadUrl="/api/company/upload-logo"
+        />
         <div><Label>Company Name</Label><Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} disabled={loading} /></div>
         <div><Label>GST Number</Label><Input value={form.gst_number} onChange={(e) => setForm({ ...form, gst_number: e.target.value })} disabled={loading} /></div>
         <div><Label>Address</Label><Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} disabled={loading} /></div>

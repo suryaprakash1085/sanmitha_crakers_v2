@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { api } from "@/lib/api";
 
 export interface CompanyData {
@@ -36,11 +36,16 @@ function normalize(raw: any): CompanyData {
   };
 }
 
+/** Dispatch this after saving company details so Navbar/Footer refresh instantly. */
+export function notifyCompanyChanged() {
+  window.dispatchEvent(new Event("company-changed"));
+}
+
 export function useCompany() {
   const [company, setCompany] = useState<CompanyData>(empty);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetch = useCallback(() => {
     api
       .get<{ data: any }>("/company")
       .then((res) => {
@@ -49,6 +54,12 @@ export function useCompany() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch();
+    window.addEventListener("company-changed", fetch);
+    return () => window.removeEventListener("company-changed", fetch);
+  }, [fetch]);
 
   return { company, loading };
 }
