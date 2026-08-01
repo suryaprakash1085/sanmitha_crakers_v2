@@ -32,6 +32,17 @@ const empty: CompanyForm = {
   description: "",
 };
 
+// Normalize null values from DB to empty strings so inputs stay controlled
+function normalize(raw: any): CompanyForm {
+  return {
+    ...empty,
+    ...raw,
+    logo: raw?.logo ?? "",
+    website: raw?.website ?? "",
+    description: raw?.description ?? "",
+  };
+}
+
 export default function Company() {
   const perms = usePagePermissions("company");
   const [form, setForm] = useState<CompanyForm>(empty);
@@ -41,8 +52,8 @@ export default function Company() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get<{ data: CompanyForm | null }>("/company");
-        if (res.data) setForm({ ...empty, ...res.data });
+        const res = await api.get<{ data: any }>("/company");
+        if (res.data) setForm(normalize(res.data));
       } catch (err: any) {
         toast.error(err.message || "Failed to load company details");
       } finally {
@@ -54,7 +65,8 @@ export default function Company() {
   const save = async () => {
     setSaving(true);
     try {
-      await api.put("/company", form);
+      const res = await api.put<{ data: any }>("/company", form);
+      if (res.data) setForm(normalize(res.data));
       toast.success("Company details saved");
     } catch (err: any) {
       toast.error(err.message || "Save failed");

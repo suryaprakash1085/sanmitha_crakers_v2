@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Menu, Search, User, ShoppingCart, Sparkles, X } from "lucide-react";
+import { Menu, Search, User, ShoppingCart, X } from "lucide-react";
 import { useCart } from "@/context/CartContext";
+import { useCompany } from "@/hooks/useCompany";
 
 const links = [
   { to: "/home", label: "Home" },
@@ -19,6 +20,7 @@ export const Navbar = () => {
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   const { count, setOpen: setCartOpen } = useCart();
+  const { company } = useCompany();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -39,15 +41,15 @@ export const Navbar = () => {
     >
       <div className="container-festive flex items-center justify-between px-4 md:px-6 py-3">
         <Link to="/" className="flex items-center gap-2.5 group shrink-0">
-          <div className="w-10 h-10 rounded-full bg-festive grid place-items-center shadow-[0_0_22px_rgba(238,62,183,.5)]">
-            <img
-              src="/favicon.ico"
-              alt="Sanmitha Fireworks Logo"
-              className="w-full h-full object-cover"
-            />
+          <div className="w-10 h-10 rounded-full bg-festive grid place-items-center shadow-[0_0_22px_rgba(238,62,183,.5)] overflow-hidden">
+            {company.logo ? (
+              <img src={company.logo} alt={company.company_name || "Logo"} className="w-full h-full object-cover" />
+            ) : (
+              <img src="/favicon.ico" alt="Logo" className="w-full h-full object-cover" />
+            )}
           </div>
           <span className="font-display font-extrabold text-lg leading-tight text-gray-900 uppercase tracking-tight">
-            Sanmitha
+            {company.company_name || "Sanmitha"}
             <span className="block text-[10px] font-semibold tracking-[0.25em] text-primary -mt-0.5">
               Fireworks
             </span>
