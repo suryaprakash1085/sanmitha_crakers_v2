@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { settingsStore, AppCustom } from "@/lib/appSettings";
 import { usePagePermissions } from "@/hooks/useAccessControl";
+import { api } from "@/lib/api";
 import { Palette, Type, Layers, Sparkles, ToggleLeft, RotateCcw } from "lucide-react";
 
 /* ── colour presets ──────────────────────────────────────────────── */
@@ -101,20 +102,48 @@ export default function Customization() {
     ...settingsStore.defaults.app,
     ...settingsStore.getApp(),
   }));
+  const [saving, setSaving] = useState(false);
+
+  // Load from API on mount (overrides localStorage if DB has data)
+  useEffect(() => {
+    api.get<{ data: Partial<AppCustom> }>("/app-settings")
+      .then((res) => {
+        if (res.data && Object.keys(res.data).length > 0) {
+          const merged = { ...settingsStore.defaults.app, ...res.data };
+          settingsStore.setApp(merged);
+          setV(merged);
+        }
+      })
+      .catch(() => {}); // DB not ready — use localStorage fallback
+  }, []);
 
   const upd = <K extends keyof AppCustom>(k: K, val: AppCustom[K]) =>
     setV((p) => ({ ...p, [k]: val }));
 
-  const save = () => {
-    settingsStore.setApp(v);
-    toast.success("Customization applied to the site!");
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.put("/app-settings", v);
+      settingsStore.setApp(v);
+      toast.success("Customization saved and applied!");
+    } catch (err: any) {
+      toast.error(err.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const reset = () => {
+  const reset = async () => {
     const def = settingsStore.defaults.app;
     setV(def);
-    settingsStore.setApp(def);
-    toast.success("Reset to defaults");
+    try {
+      await api.put("/app-settings", def);
+      settingsStore.setApp(def);
+      toast.success("Reset to defaults");
+    } catch {
+      settingsStore.setApp(def);
+      toast.success("Reset to defaults (offline)");
+    }
   };
 
   return (
@@ -334,11 +363,11 @@ export default function Customization() {
             <span className="text-sm text-slate-500">Changes apply to the site immediately on save</span>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={reset} className="gap-1.5">
+            <Button variant="outline" onClick={reset} disabled={saving} className="gap-1.5">
               <RotateCcw className="w-3.5 h-3.5" /> Reset defaults
             </Button>
-            <Button onClick={save} size="lg" className="bg-violet-600 hover:bg-violet-700 text-white">
-              Save & Apply
+            <Button onClick={save} size="lg" disabled={saving} className="bg-violet-600 hover:bg-violet-700 text-white min-w-[130px]">
+              {saving ? "Saving…" : "Save & Apply"}
             </Button>
           </div>
         </div>
