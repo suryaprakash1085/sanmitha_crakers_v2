@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layout } from "@/components/Layout";
-import { useCart } from "@/context/CartContext";
+import { useCart, MIN_ORDER_AMOUNT } from "@/context/CartContext";
 import { toast } from "sonner";
 import { Country, State, City } from "country-state-city";
 import { settingsStore } from "@/lib/appSettings";
@@ -30,6 +30,10 @@ const Checkout = () => {
   const placeOrder = () => {
     if (items.length === 0) {
       toast.error("Your cart is empty");
+      return;
+    }
+    if (MIN_ORDER_AMOUNT > 0 && total < MIN_ORDER_AMOUNT) {
+      toast.error(`Minimum order amount is ₹${MIN_ORDER_AMOUNT}. Add ₹${MIN_ORDER_AMOUNT - total} more to continue.`);
       return;
     }
     if (!form.name || !form.phone || !form.address) {
@@ -216,9 +220,15 @@ const Checkout = () => {
               </div>
             </div>
 
+            {MIN_ORDER_AMOUNT > 0 && total < MIN_ORDER_AMOUNT && (
+              <p className="text-xs text-destructive text-center">
+                Minimum order amount is ₹{MIN_ORDER_AMOUNT}. Add ₹{MIN_ORDER_AMOUNT - total} more to place this order.
+              </p>
+            )}
+
             <Button
               onClick={placeOrder}
-              disabled={submitting || items.length === 0}
+              disabled={submitting || items.length === 0 || (MIN_ORDER_AMOUNT > 0 && total < MIN_ORDER_AMOUNT)}
               className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-orange-500 hover:opacity-90"
             >
               {submitting ? "Processing..." : "Place Order & Download PDF"}

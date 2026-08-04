@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ShoppingCart, X } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 import type { Product } from "@/data/products";
 import { useCart } from "@/context/CartContext";
-import { toast } from "sonner";
 
 interface Props { product: Product | null; onClose: () => void; }
 
 export const ProductModal = ({ product, onClose }: Props) => {
-  const { add, setOpen } = useCart();
+  const { items, updateQty } = useCart();
+  const qty = product ? items.find((i) => i.id === product.id)?.qty || 0 : 0;
+  const setQty = (n: number) => product && updateQty(product.id, Math.max(0, n), product);
 
   return (
     <AnimatePresence>
@@ -49,12 +50,30 @@ export const ProductModal = ({ product, onClose }: Props) => {
                     Premium quality {product.category.toLowerCase()} crafted for a safe & spectacular Diwali. Light up the sky with vibrant colours and unforgettable bursts.
                   </p>
                   <div className="font-display font-bold text-4xl text-gradient-festive mb-6">₹{product.price}</div>
-                  <button
-                    onClick={() => { add(product); toast.success(`${product.name} added to cart 🎇`); onClose(); setOpen(true); }}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-festive text-white font-semibold px-6 py-3 shadow-soft hover:scale-105 transition-transform"
-                  >
-                    <ShoppingCart className="w-4 h-4" /> Add to Cart
-                  </button>
+                  <div className="flex items-center gap-1 rounded-xl border border-primary/20 bg-primary/5 p-1 w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setQty(qty - 1)}
+                      disabled={qty === 0}
+                      className="w-10 h-10 rounded-lg grid place-items-center bg-white hover:bg-primary/10 disabled:opacity-30 transition"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      value={qty}
+                      onChange={(e) => setQty(+e.target.value || 0)}
+                      className="w-16 h-10 text-center text-base font-semibold bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQty(qty + 1)}
+                      className="w-10 h-10 rounded-lg grid place-items-center bg-white hover:bg-primary/10 transition"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

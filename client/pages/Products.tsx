@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductModal } from "@/components/ProductModal";
 import { type Product } from "@/data/products";
 import { useProducts } from "@/hooks/useProducts";
-import { Search } from "lucide-react";
+import { useCart } from "@/context/CartContext";
+import { Search, ShoppingBag } from "lucide-react";
 import { Fireworks } from "@/components/Fireworks";
 
 // Rotating set of colors for the category chips so each one stands out.
@@ -24,7 +26,9 @@ const slugify = (s: string) =>
   "cat-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 const Products = () => {
+  const navigate = useNavigate();
   const { products, loading } = useProducts();
+  const { count, total, minOrderAmount, meetsMinOrder } = useCart();
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Product | null>(null);
 
@@ -67,7 +71,7 @@ const Products = () => {
 
   return (
     <Layout>
-      <section className="section-pad !pt-10">
+      <section className={`section-pad !pt-10 ${count > 0 ? "!pb-32" : ""}`}>
         <div className="container-festive">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -161,6 +165,46 @@ const Products = () => {
           )}
         </div>
       </section>
+
+      {/* Fixed to the viewport bottom at all times — was `sticky bottom-4`,
+          which only kicked in once you scrolled to the end of the page's
+          normal flow. `fixed` pins it to the screen regardless of scroll
+          position. */}
+      {count > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4">
+          <div className="container-festive">
+            <div className="glass-card rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-soft">
+              <div className="flex items-center gap-6">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Items</p>
+                  <p className="text-xl font-bold">{count}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Order Value</p>
+                  <p className="text-xl font-bold text-primary">₹{total}</p>
+                </div>
+                {minOrderAmount > 0 && !meetsMinOrder && (
+                  <p className="text-xs text-destructive">
+                    Add ₹{minOrderAmount - total} more to reach the minimum order of ₹{minOrderAmount}
+                  </p>
+                )}
+              </div>
+              {/* Button only renders once the minimum order value is met —
+                  hidden entirely rather than shown-but-disabled. */}
+              {meetsMinOrder && (
+                <button
+                  onClick={() => navigate("/checkout")}
+                  className="btn-festive flex items-center gap-2"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Proceed to Checkout
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <ProductModal product={active} onClose={() => setActive(null)} />
     </Layout>
   );
