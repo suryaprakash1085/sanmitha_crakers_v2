@@ -1,79 +1,69 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Layout } from "@/components/Layout";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductModal } from "@/components/ProductModal";
-import { type Category, type Product } from "@/data/products";
+import { type Product } from "@/data/products";
 import { useProducts } from "@/hooks/useProducts";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 import { Fireworks } from "@/components/Fireworks";
-import { useSearchParams } from "react-router-dom";
-const categories: ("All" | Category)[] = [
-  "All",
-  "Rockets",
-  "Sparklers",
-  "Fountains",
-  "Bombs",
+
+// Rotating set of colors for the category chips so each one stands out.
+const chipColors = [
+  "bg-rose-500/15 text-rose-600 border-rose-500/30 hover:bg-rose-500/25",
+  "bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/25",
+  "bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/25",
+  "bg-sky-500/15 text-sky-600 border-sky-500/30 hover:bg-sky-500/25",
+  "bg-violet-500/15 text-violet-600 border-violet-500/30 hover:bg-violet-500/25",
+  "bg-pink-500/15 text-pink-600 border-pink-500/30 hover:bg-pink-500/25",
+  "bg-orange-500/15 text-orange-600 border-orange-500/30 hover:bg-orange-500/25",
+  "bg-teal-500/15 text-teal-600 border-teal-500/30 hover:bg-teal-500/25",
 ];
-const sorts = [
-  "Popularity",
-  "Price: Low to High",
-  "Price: High to Low",
-  "Name",
-] as const;
+
+const slugify = (s: string) =>
+  "cat-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 const Products = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const urlCategory = searchParams.get("category");
-  const initialCat: "All" | Category =
-    urlCategory && (categories as string[]).includes(urlCategory)
-      ? (urlCategory as Category)
-      : "All";
-
-  const [cat, setCat] = useState<"All" | Category>(initialCat);
-  const [search, setSearch] = useState("");
-  const [maxPrice, setMaxPrice] = useState(2000);
-  const [sort, setSort] = useState<(typeof sorts)[number]>("Popularity");
-  const [active, setActive] = useState<Product | null>(null);
   const { products, loading } = useProducts();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState<Product | null>(null);
 
-  // Keep the filter in sync if the URL's ?category= changes (e.g. clicking a
-  // different category link while already on this page).
-  useEffect(() => {
-    const c = searchParams.get("category");
-    if (c && (categories as string[]).includes(c)) {
-      setCat(c as Category);
-    } else if (!c) {
-      setCat("All");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  // Category list is derived straight from the API data (ordered by
+  // category_id) so every category the backend returns shows up.
+  const categories = useMemo(() => {
+    const map = new Map<string, number>();
+    products.forEach((p: any) => {
+      if (!map.has(p.category)) {
+        map.set(p.category, p.category_id ?? 0);
+      }
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => a[1] - b[1])
+      .map(([name]) => name);
+  }, [products]);
 
-  const handleCatChange = (c: "All" | Category) => {
-    setCat(c);
-    if (c === "All") {
-      searchParams.delete("category");
-      setSearchParams(searchParams, { replace: true });
-    } else {
-      setSearchParams({ category: c }, { replace: true });
+  // Group every product by category — no filter sidebar, everything shows.
+  const sections = useMemo(() => {
+    return categories
+      .map((c) => ({
+        category: c,
+        items: products.filter(
+          (p: any) =>
+            p.category === c &&
+            p.name.toLowerCase().includes(search.toLowerCase()),
+        ),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [categories, products, search]);
+
+  const totalCount = sections.reduce((sum, s) => sum + s.items.length, 0);
+
+  const scrollToCategory = (c: string) => {
+    const el = document.getElementById(slugify(c));
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
-
-  const filtered = useMemo(() => {
-    let r = products.filter(
-      (p) =>
-        (cat === "All" || p.category === cat) &&
-        p.name.toLowerCase().includes(search.toLowerCase()) &&
-        p.price <= maxPrice,
-    );
-    if (sort === "Price: Low to High")
-      r = [...r].sort((a, b) => a.price - b.price);
-    if (sort === "Price: High to Low")
-      r = [...r].sort((a, b) => b.price - a.price);
-    if (sort === "Name")
-      r = [...r].sort((a, b) => a.name.localeCompare(b.name));
-    return r;
-  }, [cat, search, maxPrice, sort, products]);
 
   return (
     <Layout>
@@ -90,103 +80,85 @@ const Products = () => {
             </h1>
           </motion.div>
 
-          <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-            {/* Sidebar filters */}
-            <aside className="glass-card rounded-3xl p-6 h-fit lg:sticky lg:top-28">
-              <div className="flex items-center gap-2 mb-4">
-                <SlidersHorizontal className="w-4 h-4 text-primary" />
-                <h3 className="font-display font-semibold">Filter Products</h3>
-              </div>
+          <div className="flex flex-col sm:flex-row gap-3 mb-6 max-w-xl mx-auto">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search products…"
+                className="input-glow !pl-11"
+              />
+            </div>
+            <div className="glass-card rounded-xl px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
+              {totalCount} products
+            </div>
+          </div>
 
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Category
-              </h4>
-              <div className="flex flex-col gap-1 mb-6">
-                {categories.map((c) => (
+          {categories.length > 0 && (
+            <div className="sticky top-20 z-20 glass-card rounded-2xl px-3 py-3 mb-8 overflow-x-auto">
+              <div className="flex gap-2 w-max">
+                {categories.map((c, i) => (
                   <button
                     key={c}
-                    onClick={() => handleCatChange(c)}
-                    className={`text-left px-3 py-2 rounded-xl text-sm transition border ${
-                      cat === c
-                        ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
-                        : "border-transparent hover:bg-primary/5"
+                    onClick={() => scrollToCategory(c)}
+                    className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition ${
+                      chipColors[i % chipColors.length]
                     }`}
                   >
                     {c}
                   </button>
                 ))}
               </div>
+            </div>
+          )}
 
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Price Range
-              </h4>
-              <input
-                type="range"
-                min={50}
-                max={2000}
-                step={10}
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(+e.target.value)}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mb-6">
-                <span>₹0</span>
-                <span>₹{maxPrice}</span>
-              </div>
-
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Sort By
-              </h4>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as any)}
-                className="input-glow text-sm py-2"
-              >
-                {sorts.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </aside>
-
-            {/* Products */}
-            <div>
-              <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search products…"
-                    className="input-glow !pl-11"
-                  />
-                </div>
-                <div className="glass-card rounded-xl px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                  {filtered.length} products
-                </div>
-              </div>
-
-              {loading ? (
-                <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
-                  Loading products…
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
-                  No products match your filters.
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {filtered.map((p, i) => (
-                    <ProductCard
-                      key={p.id}
-                      product={p}
-                      index={i}
-                      onImageClick={setActive}
-                    />
-                  ))}
-                </div>
+          {loading ? (
+            <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
+              Loading products…
+            </div>
+          ) : sections.length === 0 ? (
+            <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
+              <p className="mb-4">No products found.</p>
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+                >
+                  Clear search
+                </button>
               )}
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-10">
+              {sections.map((section) => (
+                <div
+                  key={section.category}
+                  id={slugify(section.category)}
+                  className="scroll-mt-40"
+                >
+                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-primary/20">
+                    <h2 className="font-display text-2xl md:text-3xl font-bold">
+                      {section.category}
+                    </h2>
+                    <span className="text-xs text-muted-foreground bg-primary/10 px-2 py-1 rounded-full">
+                      {section.items.length}
+                    </span>
+                  </div>
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {section.items.map((p, i) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        index={i}
+                        onImageClick={setActive}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
       <ProductModal product={active} onClose={() => setActive(null)} />
