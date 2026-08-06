@@ -16,8 +16,8 @@ import { useCrudModal } from "@/hooks/useCrudModal";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { usePagePermissions } from "@/hooks/useAccessControl";
-import { settingsStore } from "@/lib/appSettings";
 import { buildInvoicePdf } from "@/lib/invoicePdf";
+import { buildLiveInvoiceCfg } from "@/lib/invoiceCompany";
 
 type Status = "Pending" | "Processing" | "Shipped" | "Delivered";
 type PaymentMethod = "Pending" | "Cash on Delivery" | "Online Payment" | "UPI" | "Card";
@@ -198,13 +198,15 @@ export default function Orders() {
       // Row data may not carry the product list, so fetch the full order first.
       const res = await api.get<{ data: Order }>(`/orders/${o.id}`);
       const full = res.data;
-      const pdfCfg = settingsStore.getPdf();
       const items = (full.items && full.items.length ? full.items : []).map((it) => ({
         name: it.product_name,
         qty: it.quantity,
         price: it.price,
         unit: "-",
       }));
+      // Company name, address, GSTIN, bank & UPI details come live from
+      // GET /api/company, and the QR is generated for this order's total.
+      const pdfCfg = await buildLiveInvoiceCfg(Number(full.total));
       const doc = buildInvoicePdf(pdfCfg, {
         invoiceNo: full.order_number,
         date: full.order_date,

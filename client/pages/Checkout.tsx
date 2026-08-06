@@ -11,8 +11,8 @@ import { Layout } from "@/components/Layout";
 import { useCart, MIN_ORDER_AMOUNT } from "@/context/CartContext";
 import { toast } from "sonner";
 import { Country, State, City } from "country-state-city";
-import { settingsStore } from "@/lib/appSettings";
 import { buildInvoicePdf } from "@/lib/invoicePdf";
+import { buildLiveInvoiceCfg } from "@/lib/invoiceCompany";
 import { notifications } from "@/lib/notifications";
 
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -49,7 +49,7 @@ const [cityOpen, setCityOpen] = useState(false);
 
   const update = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }));
 
-  const placeOrder = () => {
+  const placeOrder = async () => {
     if (items.length === 0) {
       toast.error("Your cart is empty");
       return;
@@ -64,7 +64,9 @@ const [cityOpen, setCityOpen] = useState(false);
     }
 
     setSubmitting(true);
-    const pdfCfg = settingsStore.getPdf();
+    // Company name, address, GSTIN, bank & UPI details come live from
+    // GET /api/company, and the QR is generated for this invoice's total.
+    const pdfCfg = await buildLiveInvoiceCfg(total);
     const invoiceNo = `${pdfCfg.invoicePrefix || "INV"}-${Date.now().toString().slice(-6)}`;
     const countryName = countries.find(c => c.isoCode === form.country)?.name || "";
     const stateName = states.find(s => s.isoCode === form.state)?.name || "";
