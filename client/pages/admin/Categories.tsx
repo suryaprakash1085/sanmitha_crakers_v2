@@ -15,7 +15,7 @@ import { TableFilters } from "@/components/admin/TableFilters";
 import { api } from "@/lib/api";
 import { usePagePermissions } from "@/hooks/useAccessControl";
 
-interface Category { id: number; name: string; image: string | null; productCount: number; }
+interface Category { id: number; name: string; image: string | null; sort_order: number; productCount: number; }
 
 export default function Categories() {
   const perms = usePagePermissions("categories");
@@ -24,6 +24,7 @@ export default function Categories() {
   const modal = useCrudModal<Category>();
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
+  const [order, setOrder] = useState("");
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => items.filter(c => c.name.toLowerCase().includes(search.toLowerCase())), [items, search]);
 
@@ -31,7 +32,16 @@ export default function Categories() {
     setLoading(true);
     try {
       const res = await api.get<{ data: Category[] }>("/categories");
-      setItems(res.data.map((c: any) => ({ ...c, image: c.image ?? null, productCount: Number(c.productCount) || 0 })));
+      setItems(
+        res.data
+          .map((c: any) => ({
+            ...c,
+            image: c.image ?? null,
+            sort_order: Number(c.sort_order) || 0,
+            productCount: Number(c.productCount) || 0,
+          }))
+          .sort((a, b) => a.sort_order - b.sort_order),
+      );
     } catch (err: any) {
       toast.error(err.message || "Failed to load categories");
     } finally {
@@ -41,17 +51,21 @@ export default function Categories() {
 
   useEffect(() => { load(); }, []);
 
-  const onCreate = () => { setName(""); setImage(""); modal.openCreate(); };
-  const onEdit = (c: Category) => { setName(c.name); setImage(c.image || ""); modal.openEdit(c); };
+  // Suggest the next order number after the current highest, so new
+  // categories default to appearing last.
+  const nextOrder = () => String(items.reduce((max, c) => Math.max(max, c.sort_order), 0) + 1);
+
+  const onCreate = () => { setName(""); setImage(""); setOrder(nextOrder()); modal.openCreate(); };
+  const onEdit = (c: Category) => { setName(c.name); setImage(c.image || ""); setOrder(String(c.sort_order ?? 0)); modal.openEdit(c); };
 
   const save = async () => {
     if (!name.trim()) return toast.error("Name required");
     try {
       if (modal.mode === "edit" && modal.item) {
-        await api.put(`/categories/${modal.item.id}`, { name, image });
+        await api.put(`/categories/${modal.item.id}`, { name, image, sort_order: order });
         toast.success("Category updated");
       } else {
-        await api.post("/categories", { name, image });
+        await api.post("/categories", { name, image, sort_order: order });
         toast.success("Category added");
       }
       modal.close();
@@ -84,6 +98,7 @@ export default function Categories() {
           <div className="h-10 w-10 rounded-md bg-slate-100 border border-slate-200" />
         ),
     },
+    { header: "Order", cell: (c) => c.sort_order },
     { header: "Name", cell: (c) => c.name },
     { header: "Products", cell: (c) => c.productCount },
     { header: "Actions", cell: (c) => <RowActions onView={() => modal.openView(c)} onEdit={perms.put ? () => onEdit(c) : undefined} onDelete={perms.delete ? () => modal.openDelete(c) : undefined} /> },
@@ -112,11 +127,21 @@ export default function Categories() {
               <img src={modal.item.image} alt={modal.item.name} className="h-24 w-24 rounded-md object-cover border border-slate-200" />
             )}
             <div><Label>Name</Label><p className="font-medium">{modal.item.name}</p></div>
+            <div><Label>Order</Label><p>{modal.item.sort_order}</p></div>
             <div><Label>Products</Label><p>{modal.item.productCount}</p></div>
           </div>
         ) : (
           <div className="space-y-4">
             <div><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+            <div>
+              <Label>Order</Label>
+              <Input
+                type="number"
+                value={order}
+                onChange={(e) => setOrder(e.target.value)}
+                placeholder="1, 2, 3..."
+              />
+            </div>
             <ImagePicker label="Category Image" value={image} onChange={setImage} uploadUrl="/api/categories/upload" />
           </div>
         )}

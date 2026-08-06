@@ -26,18 +26,27 @@ export const CategoryController = {
   },
 
   async create(req: Request, res: Response) {
-    const { name, image } = req.body;
+    const { name, image, sort_order } = req.body;
     if (!name?.trim()) return res.status(400).json({ success: false, error: "Name is required" });
     const existing = await CategoryModel.findByName(name);
     if (existing) return res.status(409).json({ success: false, error: "Category already exists" });
-    const item = await CategoryModel.create(name.trim(), image);
+    const item = await CategoryModel.create(
+      name.trim(),
+      image,
+      sort_order === undefined || sort_order === "" ? null : Number(sort_order),
+    );
     res.status(201).json({ success: true, data: item });
   },
 
   async update(req: Request, res: Response) {
-    const { name, image } = req.body;
+    const { name, image, sort_order } = req.body;
     if (!name?.trim()) return res.status(400).json({ success: false, error: "Name is required" });
-    const item = await CategoryModel.update(Number(req.params.id), name.trim(), image);
+    const item = await CategoryModel.update(
+      Number(req.params.id),
+      name.trim(),
+      image,
+      sort_order === undefined || sort_order === "" ? null : Number(sort_order),
+    );
     res.json({ success: true, data: item });
   },
 

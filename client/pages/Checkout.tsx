@@ -15,6 +15,24 @@ import { settingsStore } from "@/lib/appSettings";
 import { buildInvoicePdf } from "@/lib/invoicePdf";
 import { notifications } from "@/lib/notifications";
 
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, total, updateQty, remove, clear } = useCart();
@@ -24,6 +42,10 @@ const Checkout = () => {
   const countries = useMemo(() => Country.getAllCountries(), []);
   const states = useMemo(() => (form.country ? State.getStatesOfCountry(form.country) : []), [form.country]);
   const cities = useMemo(() => (form.country && form.state ? City.getCitiesOfState(form.country, form.state) : []), [form.country, form.state]);
+
+
+  const [stateOpen, setStateOpen] = useState(false);
+const [cityOpen, setCityOpen] = useState(false);
 
   const update = (k: keyof typeof form, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -138,40 +160,122 @@ const Checkout = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>State</Label>
-                <Select value={form.state} onValueChange={v => setForm(f => ({ ...f, state: v, city: "" }))} disabled={!states.length}>
-                  <SelectTrigger><SelectValue placeholder={states.length ? "Select state" : "No states"} /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {states.map(s => (
-                      <SelectItem key={s.isoCode} value={s.isoCode}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+           
+
+<div>
+  <Label>State</Label>
+
+  <Popover open={stateOpen} onOpenChange={setStateOpen}>
+    <PopoverTrigger asChild>
+      <Button
+        variant="outline"
+        role="combobox"
+        className="w-full justify-between"
+        disabled={!states.length}
+      >
+        {form.state
+          ? states.find((s) => s.isoCode === form.state)?.name
+          : "Select State"}
+
+        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+      </Button>
+    </PopoverTrigger>
+
+    <PopoverContent className="w-full p-0">
+      <Command>
+        <CommandInput placeholder="Search state..." />
+
+        <CommandList>
+          <CommandEmpty>No state found.</CommandEmpty>
+
+          <CommandGroup>
+            {states.map((state) => (
+              <CommandItem
+                key={state.isoCode}
+                value={state.name}
+                onSelect={() => {
+                  setForm((f) => ({
+                    ...f,
+                    state: state.isoCode,
+                    city: "",
+                  }));
+                  setStateOpen(false);
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    form.state === state.isoCode
+                      ? "opacity-100"
+                      : "opacity-0"
+                  )}
+                />
+                {state.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>
+</div>
+
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label>City</Label>
-                {cities.length > 0 ? (
-                  <Select value={form.city} onValueChange={v => update("city", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select city" /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {cities.map(ci => (
-                        <SelectItem key={`${ci.name}-${ci.latitude}-${ci.longitude}`} value={ci.name}>{ci.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input value={form.city} onChange={e => update("city", e.target.value)} placeholder="City" />
-                )}
-              </div>
-              <div>
-                <Label>Pincode</Label>
-                <Input value={form.pincode} onChange={e => update("pincode", e.target.value)} placeholder="600001" />
-              </div>
-            </div>
+          
+<div>
+  <Label>City</Label>
+
+  <Popover open={cityOpen} onOpenChange={setCityOpen}>
+    <PopoverTrigger asChild>
+      <Button
+        variant="outline"
+        role="combobox"
+        className="w-full justify-between"
+      >
+        {form.city || "Select City"}
+
+        <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+      </Button>
+    </PopoverTrigger>
+
+    <PopoverContent className="w-full p-0">
+      <Command>
+        <CommandInput placeholder="Search city..." />
+
+        <CommandList>
+          <CommandEmpty>No city found.</CommandEmpty>
+
+          <CommandGroup>
+            {cities.map((city) => (
+              <CommandItem
+                key={`${city.name}-${city.latitude}-${city.longitude}`}
+                value={city.name}
+                onSelect={() => {
+                  update("city", city.name);
+                  setCityOpen(false);
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    form.city === city.name
+                      ? "opacity-100"
+                      : "opacity-0"
+                  )}
+                />
+                {city.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </PopoverContent>
+  </Popover>
+</div>
+
+
+
           </motion.div>
 
           {/* Order Summary */}

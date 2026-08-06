@@ -6,21 +6,10 @@ import { ProductCard } from "@/components/ProductCard";
 import { ProductModal } from "@/components/ProductModal";
 import { type Product } from "@/data/products";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import { useCart } from "@/context/CartContext";
 import { Search, ShoppingBag } from "lucide-react";
 import { Fireworks } from "@/components/Fireworks";
-
-// Rotating set of colors for the category chips so each one stands out.
-const chipColors = [
-  "bg-rose-500/15 text-rose-600 border-rose-500/30 hover:bg-rose-500/25",
-  "bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/25",
-  "bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/25",
-  "bg-sky-500/15 text-sky-600 border-sky-500/30 hover:bg-sky-500/25",
-  "bg-violet-500/15 text-violet-600 border-violet-500/30 hover:bg-violet-500/25",
-  "bg-pink-500/15 text-pink-600 border-pink-500/30 hover:bg-pink-500/25",
-  "bg-orange-500/15 text-orange-600 border-orange-500/30 hover:bg-orange-500/25",
-  "bg-teal-500/15 text-teal-600 border-teal-500/30 hover:bg-teal-500/25",
-];
 
 const slugify = (s: string) =>
   "cat-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -28,23 +17,32 @@ const slugify = (s: string) =>
 const Products = () => {
   const navigate = useNavigate();
   const { products, loading } = useProducts();
+  const { categories: categoryList } = useCategories();
   const { count, total, minOrderAmount, meetsMinOrder } = useCart();
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Product | null>(null);
 
-  // Category list is derived straight from the API data (ordered by
-  // category_id) so every category the backend returns shows up.
+  // Category list is derived from the products present, but ordered using
+  // the admin-configured display order (categories.sort_order) rather than
+  // category_id, so admins can control the section order on the homepage.
+  // Categories that exist on a product but aren't found in the categories
+  // list (edge case) are pushed to the end, in the order encountered.
   const categories = useMemo(() => {
-    const map = new Map<string, number>();
+    const orderByName = new Map(categoryList.map((c) => [c.name, c.sortOrder]));
+    const seen = new Set<string>();
+    const names: string[] = [];
     products.forEach((p: any) => {
-      if (!map.has(p.category)) {
-        map.set(p.category, p.category_id ?? 0);
+      if (!seen.has(p.category)) {
+        seen.add(p.category);
+        names.push(p.category);
       }
     });
-    return Array.from(map.entries())
-      .sort((a, b) => a[1] - b[1])
-      .map(([name]) => name);
-  }, [products]);
+    return names.sort((a, b) => {
+      const orderA = orderByName.has(a) ? orderByName.get(a)! : Number.MAX_SAFE_INTEGER;
+      const orderB = orderByName.has(b) ? orderByName.get(b)! : Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+  }, [products, categoryList]);
 
   // Group every product by category — no filter sidebar, everything shows.
   const sections = useMemo(() => {
@@ -61,13 +59,6 @@ const Products = () => {
   }, [categories, products, search]);
 
   const totalCount = sections.reduce((sum, s) => sum + s.items.length, 0);
-
-  const scrollToCategory = (c: string) => {
-    const el = document.getElementById(slugify(c));
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
 
   return (
     <Layout>
@@ -98,24 +89,6 @@ const Products = () => {
               {totalCount} products
             </div>
           </div>
-
-          {categories.length > 0 && (
-            <div className="sticky top-20 z-20 glass-card rounded-2xl px-3 py-3 mb-8 overflow-x-auto">
-              <div className="flex gap-2 w-max">
-                {categories.map((c, i) => (
-                  <button
-                    key={c}
-                    onClick={() => scrollToCategory(c)}
-                    className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition ${
-                      chipColors[i % chipColors.length]
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {loading ? (
             <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">

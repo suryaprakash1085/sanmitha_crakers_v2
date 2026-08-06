@@ -61,13 +61,22 @@ export const ProductCard = ({ product, index = 0, onImageClick }: Props) => {
             >
               <Minus className="w-3 h-3" />
             </button>
-            <input
-              type="number"
-              min={0}
-              value={qty}
-              onChange={(e) => setQty(+e.target.value || 0)}
-              className="w-12 h-7 text-center text-sm font-semibold bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
+           <input
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={qty}
+  onFocus={(e) => e.target.select()}
+  onChange={(e) => {
+    // Keep digits only, then drop any leading zeros ("05" -> "5").
+    // Empty field counts as 0.
+    const digitsOnly = e.target.value.replace(/\D/g, "");
+    const num =
+      digitsOnly === "" ? 0 : Number(digitsOnly.replace(/^0+(?=\d)/, ""));
+    setQty(num); // or updateQty(product.id, num, product) — use whatever function this file already calls
+  }}
+  className="w-10 text-center text-sm font-semibold outline-none" // keep your existing classes, just add onFocus/onChange logic
+/>
             <button
               type="button"
               onClick={() => setQty(qty + 1)}
