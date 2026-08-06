@@ -20,6 +20,12 @@ interface CompanyForm {
   logo: string;
   website: string;
   description: string;
+  bank_name: string;
+  account_holder_name: string;
+  account_number: string;
+  account_type: string;
+  ifsc_code: string;
+  upi_id: string;
 }
 
 const empty: CompanyForm = {
@@ -31,6 +37,12 @@ const empty: CompanyForm = {
   logo: "",
   website: "",
   description: "",
+  bank_name: "",
+  account_holder_name: "",
+  account_number: "",
+  account_type: "",
+  ifsc_code: "",
+  upi_id: "",
 };
 
 // Normalize null values from DB to empty strings so inputs stay controlled
@@ -41,6 +53,12 @@ function normalize(raw: any): CompanyForm {
     logo: raw?.logo ?? "",
     website: raw?.website ?? "",
     description: raw?.description ?? "",
+    bank_name: raw?.bank_name ?? "",
+    account_holder_name: raw?.account_holder_name ?? "",
+    account_number: raw?.account_number ?? "",
+    account_type: raw?.account_type ?? "",
+    ifsc_code: raw?.ifsc_code ?? "",
+    upi_id: raw?.upi_id ?? "",
   };
 }
 
@@ -96,6 +114,19 @@ export default function Company() {
         </div>
         <div><Label>Website</Label><Input placeholder="https://example.com" value={form.website} onChange={(e) => setForm({ ...form, website: e.target.value })} disabled={loading} /></div>
         <div><Label>Company Description</Label><Textarea placeholder="A short description about your company" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} disabled={loading} /></div>
+
+        <div className="pt-2 border-t">
+          <h3 className="font-semibold text-sm text-muted-foreground mb-3 mt-4">Bank &amp; Payment Details</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div><Label>Bank Name</Label><Input value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} disabled={loading} /></div>
+            <div><Label>Account Holder Name</Label><Input value={form.account_holder_name} onChange={(e) => setForm({ ...form, account_holder_name: e.target.value })} disabled={loading} /></div>
+            <div><Label>Account Number</Label><Input value={form.account_number} onChange={(e) => setForm({ ...form, account_number: e.target.value })} disabled={loading} /></div>
+            <div><Label>Account Type</Label><Input placeholder="SAVINGS / CURRENT" value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })} disabled={loading} /></div>
+            <div><Label>IFSC Code</Label><Input value={form.ifsc_code} onChange={(e) => setForm({ ...form, ifsc_code: e.target.value })} disabled={loading} /></div>
+            <div><Label>UPI ID</Label><Input placeholder="name@bank" value={form.upi_id} onChange={(e) => setForm({ ...form, upi_id: e.target.value })} disabled={loading} /></div>
+          </div>
+        </div>
+
         {perms.put && <Button onClick={save} disabled={loading || saving}>{saving ? "Saving..." : "Save"}</Button>}
       </Card>
     </div>

@@ -10,6 +10,12 @@ export async function seed(knex: Knex): Promise<void> {
       address: "123 Festival St, Sivakasi, Tamil Nadu",
       phone: "+91 98765 43210",
       email: "info@firecrackers.com",
+      bank_name: "ICICI Bank",
+      account_holder_name: "Fire Crackers Co.",
+      account_number: "0747020303030486",
+      account_type: "SAVINGS",
+      ifsc_code: "ICBA0000747",
+      upi_id: "firecrackers@icici",
     },
   ]);
 }

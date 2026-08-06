@@ -7,7 +7,7 @@ export const CompanyModel = {
     return table().where({ id: 1 }).first();
   },
 
-  async update(data: Partial<{ company_name: string; gst_number: string; address: string; phone: string; email: string; logo: string; website: string; description: string }>) {
+  async update(data: Partial<{ company_name: string; gst_number: string; address: string; phone: string; email: string; logo: string; website: string; description: string; bank_name: string; account_holder_name: string; account_number: string; account_type: string; ifsc_code: string; upi_id: string }>) {
     const existing = await this.get();
     if (existing) {
       await table()

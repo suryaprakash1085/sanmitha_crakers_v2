@@ -11,6 +11,12 @@ export interface CompanyData {
   logo: string;
   website: string;
   description: string;
+  bank_name: string;
+  account_holder_name: string;
+  account_number: string;
+  account_type: string;
+  ifsc_code: string;
+  upi_id: string;
 }
 
 const empty: CompanyData = {
@@ -23,6 +29,12 @@ const empty: CompanyData = {
   logo: "",
   website: "",
   description: "",
+  bank_name: "",
+  account_holder_name: "",
+  account_number: "",
+  account_type: "",
+  ifsc_code: "",
+  upi_id: "",
 };
 
 // Normalize nulls from DB to empty strings
@@ -33,6 +45,12 @@ function normalize(raw: any): CompanyData {
     logo: raw?.logo ?? "",
     website: raw?.website ?? "",
     description: raw?.description ?? "",
+    bank_name: raw?.bank_name ?? "",
+    account_holder_name: raw?.account_holder_name ?? "",
+    account_number: raw?.account_number ?? "",
+    account_type: raw?.account_type ?? "",
+    ifsc_code: raw?.ifsc_code ?? "",
+    upi_id: raw?.upi_id ?? "",
   };
 }
 
