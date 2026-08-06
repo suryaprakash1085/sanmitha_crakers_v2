@@ -28,6 +28,7 @@ interface OrderItem {
   product_name: string;
   quantity: number;
   price: number;
+  discount_percent?: number;
 }
 
 interface Order {
@@ -47,6 +48,7 @@ interface ProductOption {
   id: number;
   name: string;
   price: number;
+  discount_percent: number;
 }
 
 const statusVariants: Record<Status, string> = {
@@ -103,7 +105,7 @@ export default function Orders() {
   const loadProducts = async () => {
     try {
       const res = await api.get<{ data: any[] }>("/products");
-      setProducts(res.data.map((p) => ({ id: p.id, name: p.name, price: Number(p.price) })));
+      setProducts(res.data.map((p) => ({ id: p.id, name: p.name, price: Number(p.price), discount_percent: Number(p.discount_percent) || 0 })));
     } catch {
       // product list is only used to speed up order entry; failing silently
       // still lets the admin type a manual total.
@@ -131,7 +133,7 @@ export default function Orders() {
       const existing = prev.find((it) => it.product_id === product.id);
       const next = existing
         ? prev.map((it) => (it.product_id === product.id ? { ...it, quantity: it.quantity + pickQty } : it))
-        : [...prev, { product_id: product.id, product_name: product.name, quantity: pickQty, price: product.price }];
+        : [...prev, { product_id: product.id, product_name: product.name, quantity: pickQty, price: product.price, discount_percent: product.discount_percent }];
       setOrderForm((f) => ({ ...f, total: itemsTotal(next) }));
       return next;
     });
@@ -198,11 +200,19 @@ export default function Orders() {
       // Row data may not carry the product list, so fetch the full order first.
       const res = await api.get<{ data: Order }>(`/orders/${o.id}`);
       const full = res.data;
+      // Prefer each product's *current* discount (from the already-loaded
+      // products list) over whatever was stored on the order line — covers
+      // older orders placed before discount tracking existed, or where the
+      // product's discount changed after the order was created.
+      const discountByProductId = new Map(products.map((p) => [p.id, p.discount_percent]));
       const items = (full.items && full.items.length ? full.items : []).map((it) => ({
         name: it.product_name,
         qty: it.quantity,
         price: it.price,
         unit: "-",
+        discountPct: it.product_id && discountByProductId.has(it.product_id)
+          ? discountByProductId.get(it.product_id)!
+          : Number((it as any).discount_percent) || 0,
       }));
       // Company name, address, GSTIN, bank & UPI details come live from
       // GET /api/company, and the QR is generated for this order's total.
@@ -292,7 +302,12 @@ export default function Orders() {
                 <div className="border rounded-md divide-y mt-1">
                   {modal.item.items.map((it, i) => (
                     <div key={it.id ?? i} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                      <span>{it.product_name} <span className="text-slate-400">× {it.quantity}</span></span>
+                      <span>
+                        {it.product_name} <span className="text-slate-400">× {it.quantity}</span>
+                        {it.discount_percent ? (
+                          <span className="ml-1 text-xs text-green-600">({it.discount_percent}% off)</span>
+                        ) : null}
+                      </span>
                       <span className="font-medium">₹{(it.price * it.quantity).toFixed(2)}</span>
                     </div>
                   ))}
@@ -386,7 +401,12 @@ export default function Orders() {
               <div className="border rounded-md divide-y">
                 {orderItems.map((it, i) => (
                   <div key={i} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                    <span>{it.product_name} <span className="text-slate-400">× {it.quantity}</span></span>
+                    <span>
+                      {it.product_name} <span className="text-slate-400">× {it.quantity}</span>
+                      {it.discount_percent ? (
+                        <span className="ml-1 text-xs text-green-600">({it.discount_percent}% off)</span>
+                      ) : null}
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">₹{(it.price * it.quantity).toFixed(2)}</span>
                       <button type="button" onClick={() => removeOrderItem(it.product_id, it.product_name)} className="text-slate-400 hover:text-red-500">

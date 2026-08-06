@@ -7,6 +7,7 @@ export interface OrderItemInput {
   product_name: string;
   quantity: number;
   price: number;
+  discount_percent?: number;
 }
 
 export const OrderItemModel = {
@@ -36,6 +37,7 @@ export const OrderItemModel = {
         product_name: it.product_name.trim(),
         quantity: it.quantity,
         price: it.price || 0,
+        discount_percent: it.discount_percent || 0,
       }));
     if (rows.length) await table().insert(rows);
     return this.findByOrderId(orderId);

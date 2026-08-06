@@ -159,11 +159,28 @@ export const buildInvoicePdf = (cfg: PdfSettings, data: InvoiceData): jsPDF => {
     headStyles: { fillColor: [r, g, b], textColor: 255, fontSize: fs - 1 },
     styles: { fontSize: fs - 1, cellPadding: 1.6 },
     theme: "grid",
-    margin: { left: M, right: M },
+    margin: { left: M, right: M, bottom: 20 },
   });
 
   let fy = (doc as any).lastAutoTable.finalY + 3;
   const totalQty = data.items.reduce((s, i) => s + i.qty, 0);
+
+  // Bottom content boundary — leave room for the footer note printed at
+  // y=290 on every page. Any section that would spill past this line pushes
+  // the rest of the invoice onto a new page instead of being cut off /
+  // hidden past the bottom of the A4 sheet.
+  const PAGE_BOTTOM = 278;
+  const PAGE_TOP = 15;
+  const ensureSpace = (needed: number) => {
+    if (fy + needed > PAGE_BOTTOM) {
+      doc.addPage();
+      fy = PAGE_TOP;
+    }
+  };
+
+  // Total qty strip + words + tax/total lines + grand total pill (~34mm as
+  // one visual block — keep them together on the same page).
+  ensureSpace(34);
 
   // Total qty strip
   doc.setFillColor(245, 245, 245);
@@ -205,6 +222,7 @@ export const buildInvoicePdf = (cfg: PdfSettings, data: InvoiceData): jsPDF => {
   // Bank + QR + Authorized
   if (cfg.showBankDetails || cfg.showQr) {
     const boxH = 42;
+    ensureSpace(boxH + 4);
     doc.setDrawColor(200);
     doc.rect(M, fy, W - 2 * M, boxH);
     doc.line(M + 75, fy, M + 75, fy + boxH);
@@ -268,6 +286,8 @@ export const buildInvoicePdf = (cfg: PdfSettings, data: InvoiceData): jsPDF => {
   }
 
   // Terms
+  const termLines = doc.splitTextToSize(cfg.terms, W - 2 * M);
+  ensureSpace(9 + termLines.length * 4);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(fs - 1);
   doc.setTextColor(r, g, b);
@@ -279,12 +299,12 @@ export const buildInvoicePdf = (cfg: PdfSettings, data: InvoiceData): jsPDF => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(fs - 2);
   doc.setTextColor(70);
-  const termLines = doc.splitTextToSize(cfg.terms, W - 2 * M);
   doc.text(termLines, M, fy);
   fy += termLines.length * 4 + 3;
 
   // Thank you banner
   if (cfg.showThankYou) {
+    ensureSpace(14);
     doc.setFillColor(255, 248, 220);
     doc.setDrawColor(240, 200, 80);
     doc.rect(M, fy, W - 2 * M, 12, "FD");
@@ -298,12 +318,17 @@ export const buildInvoicePdf = (cfg: PdfSettings, data: InvoiceData): jsPDF => {
     fy += 14;
   }
 
-  // Footer note
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(fs - 3);
-  doc.setTextColor(140);
-  doc.text(cfg.footerNote, M, 290);
-  doc.text("Page 1", W - M, 290, { align: "right" });
+  // Footer note — stamped on every page (not just the last), with the
+  // correct "Page X of N" for each.
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(fs - 3);
+    doc.setTextColor(140);
+    doc.text(cfg.footerNote, M, 290);
+    doc.text(`Page ${p} of ${pageCount}`, W - M, 290, { align: "right" });
+  }
 
   return doc;
 };

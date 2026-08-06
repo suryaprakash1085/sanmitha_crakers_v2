@@ -14,6 +14,7 @@ function normalize(row: any): Product {
     category: (row.category || "Rockets") as Product["category"],
     image: row.image || "",
     badge: row.badge || undefined,
+    discountPercent: Number(row.discount_percent) || 0,
   };
 }
 

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Country, State, City } from "country-state-city";
 import { buildInvoicePdf } from "@/lib/invoicePdf";
 import { buildLiveInvoiceCfg } from "@/lib/invoiceCompany";
+import { fetchProductDiscountMap } from "@/lib/productDiscounts";
 import { notifications } from "@/lib/notifications";
 
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -67,6 +68,10 @@ const [cityOpen, setCityOpen] = useState(false);
     // Company name, address, GSTIN, bank & UPI details come live from
     // GET /api/company, and the QR is generated for this invoice's total.
     const pdfCfg = await buildLiveInvoiceCfg(total);
+    // Always show each product's *current* discount on the invoice — not
+    // whatever was cached on the cart item when it was added — so a
+    // discount set/changed after adding to cart still shows up correctly.
+    const discountMap = await fetchProductDiscountMap();
     const invoiceNo = `${pdfCfg.invoicePrefix || "INV"}-${Date.now().toString().slice(-6)}`;
     const countryName = countries.find(c => c.isoCode === form.country)?.name || "";
     const stateName = states.find(s => s.isoCode === form.state)?.name || "";
@@ -85,7 +90,13 @@ const [cityOpen, setCityOpen] = useState(false);
         pincode: form.pincode,
       },
       dropLocation: [form.name, form.city].filter(Boolean).join(", "),
-      items: items.map(i => ({ name: i.name, qty: i.qty, price: i.price, unit: "-" })),
+      items: items.map(i => ({
+        name: i.name,
+        qty: i.qty,
+        price: i.price,
+        unit: "-",
+        discountPct: discountMap.has(i.id) ? discountMap.get(i.id)! : (i.discountPercent || 0),
+      })),
       total,
       tax: 0,
     });

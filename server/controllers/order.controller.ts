@@ -40,6 +40,7 @@ export const OrderController = {
             product_name: String(it.product_name || "").trim(),
             quantity: Number(it.quantity) || 1,
             price: Number(it.price) || 0,
+            discount_percent: Number(it.discount_percent) || 0,
           }))
         : undefined,
     });
@@ -70,6 +71,7 @@ export const OrderController = {
             product_name: String(it.product_name || "").trim(),
             quantity: Number(it.quantity) || 1,
             price: Number(it.price) || 0,
+            discount_percent: Number(it.discount_percent) || 0,
           }))
         : undefined,
     });

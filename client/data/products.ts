@@ -13,6 +13,7 @@ export interface Product {
   category: Category;
   image: string;
   badge?: string;
+  discountPercent?: number;
 }
 
 export const products: Product[] = [
