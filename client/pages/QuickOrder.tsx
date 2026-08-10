@@ -47,6 +47,27 @@ const QuickOrder = () => {
     return () => ro.disconnect();
   }, []);
 
+  // The `76px` navbar offset was a hardcoded guess and doesn't match every
+  // breakpoint (desktop nav is a different height than mobile nav), which
+  // is why the bar/floating button ended up misaligned. Measure the real
+  // fixed navbar's height from the DOM instead, so this always lines up
+  // exactly no matter the screen size. Falls back to 76 if the navbar
+  // element can't be found for some reason.
+  const [navbarHeight, setNavbarHeight] = useState(76);
+  useEffect(() => {
+    const measureNavbar = () => {
+      const nav = document.querySelector("header, nav") as HTMLElement | null;
+      if (nav) setNavbarHeight(nav.getBoundingClientRect().height);
+    };
+    measureNavbar();
+    window.addEventListener("resize", measureNavbar);
+    const t = setTimeout(measureNavbar, 300); // in case fonts/logo shift layout after first paint
+    return () => {
+      window.removeEventListener("resize", measureNavbar);
+      clearTimeout(t);
+    };
+  }, []);
+
   const cartQtyMap = useMemo(() => {
     const m: Record<string, number> = {};
     cartItems.forEach((i) => { m[i.id] = i.qty; });
@@ -193,7 +214,7 @@ const QuickOrder = () => {
               just under the fixed navbar (76px tall, see Layout.tsx). */}
           <div
             ref={barRef}
-            className={`fixed top-[76px] left-0 right-0 z-40 bg-white shadow-sm px-4 sm:px-6 lg:px-8 transition-all duration-200 ${
+            className={`fixed top-[76px] left-0 right-0 z-40 bg-white px-4 sm:px-6 lg:px-8 transition-all duration-200 ${
               scrolled ? "pt-1 pb-1" : "pt-2 pb-2"
             }`}
           >
@@ -241,8 +262,12 @@ const QuickOrder = () => {
                 VITE_MIN_ORDER_AMOUNT. Informational only — it doesn't block
                 adding to cart, just like the rest of the site. Hidden once
                 shrunk so the compact bar stays a single tight strip. */}
-            {belowMinOrder && !scrolled && (
-              <p className="text-xs text-destructive text-center max-w-screen-xl mx-auto">
+            {belowMinOrder && (
+              <p
+                className={`text-destructive text-center max-w-screen-xl mx-auto transition-all duration-200 ${
+                  scrolled ? "text-[10px] leading-tight" : "text-xs"
+                }`}
+              >
                 Minimum order amount is ₹{minOrderAmount}. Your cart currently has ₹{cartTotal} — add ₹{minOrderAmount - cartTotal} more to be able to checkout.
               </p>
             )}
@@ -392,48 +417,49 @@ const QuickOrder = () => {
                           return (
                             <div
                               key={p.id}
-                              className={`border-t border-slate-200 px-3 py-3 ${rowBg}`}
+                              className={`relative border-t border-slate-200 pl-3 pr-2 py-3 ${rowBg}`}
                             >
-                              <div className="flex gap-3">
-                                <span className="shrink-0 text-xs text-slate-400 font-medium w-4 pt-1">
-                                  {runningCodeMobile}
-                                </span>
+                              {/* Number badge — small dark square chip, floats over the
+                                  top-left corner of the image like in the reference. */}
+                              <span className="absolute left-1 top-2 z-10 w-5 h-5 rounded bg-slate-700 text-white text-[11px] font-bold grid place-items-center">
+                                {runningCodeMobile}
+                              </span>
+
+                              <p className="font-semibold text-slate-800 text-sm leading-tight break-words pl-5">
+                                {p.name}
+                              </p>
+
+                              <div className="mt-1.5 flex items-center gap-2">
                                 <img
                                   src={p.image}
                                   alt={p.name}
-                                  className="w-16 h-16 shrink-0 object-contain rounded-lg bg-white border border-slate-200"
+                                  className="w-14 h-14 shrink-0 object-contain rounded-lg bg-white border border-slate-200"
                                 />
+
                                 <div className="min-w-0 flex-1">
-                                  <p className="font-semibold text-slate-800 text-sm leading-tight break-words">
-                                    {p.name}
-                                  </p>
-                                  {p.badge && (
-                                    <span className="text-[10px] text-primary font-semibold">
-                                      {p.badge}
-                                    </span>
-                                  )}
-                                  <div className="mt-1 flex items-center gap-2">
+                                  <div className="flex items-baseline gap-1.5">
                                     {p.discountPercent ? (
                                       <>
                                         <span className="text-xs text-slate-400 line-through">
                                           ₹{p.price}
                                         </span>
-                                        <span className="text-sm font-semibold text-primary">
-                                          ₹{price}
+                                        <span className="text-[11px] text-emerald-600 font-medium">
+                                          {p.discountPercent}% off
                                         </span>
                                       </>
-                                    ) : (
-                                      <span className="text-sm font-semibold text-slate-800">
-                                        ₹{price}
-                                      </span>
-                                    )}
+                                    ) : null}
+                                  </div>
+                                  <span className="text-base font-bold text-rose-500">
+                                    ₹{price}
+                                  </span>
+                                  <div className="mt-1.5">
+                                    <QtyStepper id={p.id} q={q} />
                                   </div>
                                 </div>
-                              </div>
 
-                              <div className="mt-3 flex items-center justify-between pl-7">
-                                <QtyStepper id={p.id} q={q} />
-                                <span className="font-semibold text-slate-800 text-sm">
+                                {/* Total — blue rounded pill pinned to the right edge,
+                                    matching the reference image. */}
+                                <span className="shrink-0 self-end mb-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5">
                                   ₹{q * price}
                                 </span>
                               </div>
@@ -467,11 +493,16 @@ const QuickOrder = () => {
           instead of bottom-right (bottom-right is already taken by the
           site-wide cart icon + WhatsApp + scroll-to-top buttons). Smaller
           on mobile so it doesn't crowd/overlap the sticky summary bar or
-          the WhatsApp/cart bubbles at the bottom. */}
+          the WhatsApp/cart bubbles at the bottom. `top` is set inline from
+          the measured bar height (76px navbar + real bar height + a small
+          gap) so it always sits just below the bar — even when the
+          minimum-order warning wraps to 2 lines and the bar grows taller —
+          instead of overlapping it. */}
       <button
         onClick={addAllToCart}
         disabled={!hasPendingChanges}
-        className="fixed top-20 right-4 z-30 w-12 h-12 sm:top-24 sm:right-6 sm:w-16 sm:h-16 rounded-full bg-primary text-primary-foreground shadow-lg grid place-items-center hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        style={{ top: 76 + barHeight + 12 }}
+        className="fixed right-4 z-30 w-12 h-12 sm:right-6 sm:w-16 sm:h-16 rounded-full bg-primary text-primary-foreground shadow-lg grid place-items-center hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-[opacity,transform]"
       >
         <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
         {productsWithQty > 0 && (
