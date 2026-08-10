@@ -52,9 +52,9 @@ const AppRoutes = () => {
         <Route path="/home" element={<Index />} />
         <Route path="/about" element={<About />} />
         <Route path="/services" element={<Services />} />
-        <Route path="/" element={<Products />} />
+        <Route path="/products" element={<Products />} />
         <Route path="/collections" element={<Products />} />
-        <Route path="/quick-order" element={<QuickOrder />} />
+        <Route path="/" element={<QuickOrder />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/offers" element={<Offers />} />
         <Route path="/contact" element={<Contact />} />

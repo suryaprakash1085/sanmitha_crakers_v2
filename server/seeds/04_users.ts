@@ -23,5 +23,21 @@ export async function seed(knex: Knex): Promise<void> {
       password: bcrypt.hashSync("password123", 10),
       role: "customer",
     },
+
+ {
+      name: "Sanmitha Crackers",
+      email: "sanmithacrackers@gmail.com",
+      phone: "",
+      password: bcrypt.hashSync("sanmithacrackers123", 10),
+      role: "customer",
+    },
+    {
+      name: "Suriya",
+      email: "suirya@gmail.com",
+      phone: "",
+      password: bcrypt.hashSync("suriya@gmail.com", 10),
+      role: "admin",
+    },
+
   ]);
 }

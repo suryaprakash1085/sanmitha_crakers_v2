@@ -9,9 +9,9 @@ const links = [
   { to: "/home", label: "Home" },
   { to: "/about", label: "About" },
   { to: "/services", label: "Services" },
-  { to: "/", label: "Products" },
+  { to: "/products", label: "Products" },
   // { to: "/collections", label: "Collections" },
-  // { to: "/quick-order", label: "Quick Order" },
+  { to: "/", label: "Quick Order" },
   // { to: "/offers", label: "Offers" },
   { to: "/contact", label: "Contact" },
 ];
@@ -104,14 +104,14 @@ export const Navbar = () => {
           <button className={`hidden sm:grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors hover:text-primary ${style === "dark" ? "text-white/70" : "text-gray-900/70"}`}>
             <Search className="w-4 h-4" />
           </button>
-          <Link
+          {/* <Link
             to="/admin/login"
             title="Admin Login"
             aria-label="Admin Login"
             className={`hidden sm:grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors hover:text-primary ${style === "dark" ? "text-white/70" : "text-gray-900/70"}`}
           >
             <User className="w-4 h-4" />
-          </Link>
+          </Link> */}
           <button
             onClick={() => setCartOpen(true)}
             className={`relative grid place-items-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors hover:text-primary ${style === "dark" ? "text-white/70" : "text-gray-900/70"}`}

@@ -59,8 +59,8 @@ const [cityOpen, setCityOpen] = useState(false);
       toast.error(`Minimum order amount is ₹${MIN_ORDER_AMOUNT}. Add ₹${MIN_ORDER_AMOUNT - total} more to continue.`);
       return;
     }
-    if (!form.name || !form.phone || !form.address) {
-      toast.error("Please fill name, phone & address");
+    if (!form.name || !form.phone || !form.address || !form.pincode) {
+      toast.error("Please fill name, phone, address & pincode");
       return;
     }
 
@@ -287,7 +287,16 @@ const [cityOpen, setCityOpen] = useState(false);
   </Popover>
 </div>
 
-
+<div>
+  <Label>Pincode *</Label>
+  <Input
+    value={form.pincode}
+    onChange={(e) => update("pincode", e.target.value)}
+    placeholder="600001"
+    maxLength={6}
+    inputMode="numeric"
+  />
+</div>
 
           </motion.div>
 

@@ -18,6 +18,13 @@ function normalize(row: any): Product {
   };
 }
 
+// Sorts product names the way a person would expect: names starting with
+// numbers are ordered numerically (2, 10, 100 — not "10" before "2" like a
+// plain string sort would do), and come before names starting with letters,
+// which are then ordered alphabetically.
+const naturalCompare = (a: string, b: string) =>
+  a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+
 export function useProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +36,11 @@ export function useProducts() {
       try {
         setLoading(true);
         const res = await api.get<{ data: any[] }>("/products");
-        if (!cancelled) setProducts((res.data || []).map(normalize));
+        if (!cancelled) {
+          const list = (res.data || []).map(normalize);
+          list.sort((a, b) => naturalCompare(a.name, b.name));
+          setProducts(list);
+        }
       } catch (err: any) {
         if (!cancelled) setError(err?.message || "Failed to load products");
       } finally {

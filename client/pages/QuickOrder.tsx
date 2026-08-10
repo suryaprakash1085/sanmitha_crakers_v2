@@ -1,306 +1,485 @@
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "@/components/Layout";
-import { type Category, type Product } from "@/data/products";
 import { useProducts } from "@/hooks/useProducts";
+import { useCategories } from "@/hooks/useCategories";
 import { useCart } from "@/context/CartContext";
-import {
-  Search,
-  SlidersHorizontal,
-  Minus,
-  Plus,
-  ShoppingCart,
-  Zap,
-} from "lucide-react";
+import { Search, Minus, Plus, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
-const categories: ("All" | Category)[] = [
-  "All",
-  "Rockets",
-  "Sparklers",
-  "Fountains",
-  "Bombs",
-];
-const sorts = ["Name", "Price: Low to High", "Price: High to Low"] as const;
-
 const QuickOrder = () => {
-  const [cat, setCat] = useState<"All" | Category>("All");
-  const [search, setSearch] = useState("");
-  const [maxPrice, setMaxPrice] = useState(2000);
-  const [sort, setSort] = useState<(typeof sorts)[number]>("Name");
-  const [qty, setQty] = useState<Record<string, number>>({});
-  const { add, setOpen } = useCart();
   const { products, loading } = useProducts();
+  const { categories: categoryList } = useCategories();
+  const { updateQty, items: cartItems, setOpen, minOrderAmount, total: cartTotal } = useCart();
+  const [search, setSearch] = useState("");
+  // qty only holds quantities the user has actively changed in THIS table
+  // (typed or +/-). Anything not touched falls back to the product's real
+  // cart quantity via cartQtyMap below, so rows for products already in
+  // the cart don't visually show "0".
+  const [qty, setQty] = useState<Record<string, number>>({});
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Once the user scrolls past a small threshold, shrink the sticky top
+  // summary bar (smaller padding/text, search placeholder shortened) so it
+  // takes up less room while browsing the long product list, while staying
+  // pinned under the navbar.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-  const filtered = useMemo(() => {
-    let r = products.filter(
-      (p) =>
-        (cat === "All" || p.category === cat) &&
-        p.name.toLowerCase().includes(search.toLowerCase()) &&
-        p.price <= maxPrice,
-    );
-    if (sort === "Price: Low to High")
-      r = [...r].sort((a, b) => a.price - b.price);
-    if (sort === "Price: High to Low")
-      r = [...r].sort((a, b) => b.price - a.price);
-    if (sort === "Name")
-      r = [...r].sort((a, b) => a.name.localeCompare(b.name));
-    return r;
-  }, [cat, search, maxPrice, sort, products]);
+  // The summary bar is `fixed` (not `sticky`) so it can never get hidden
+  // behind the navbar or scrolled out of view. Since `fixed` takes it out
+  // of normal document flow, we measure its real rendered height and use
+  // that to size a spacer div, so the product list below never jumps or
+  // hides behind it — this stays correct even as the bar shrinks on scroll
+  // or the min-order warning line shows/hides.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(0);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const measure = () => setBarHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const cartQtyMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    cartItems.forEach((i) => { m[i.id] = i.qty; });
+    return m;
+  }, [cartItems]);
+
+  // The quantity actually shown/edited for a product: local edit if the
+  // user touched it this session, else whatever's already in the cart.
+  const displayQty = (id: string) => qty[id] ?? cartQtyMap[id] ?? 0;
+
+  // Net (discounted) price — product.price is the MRP, discountPercent is
+  // knocked off it, same math the invoice uses (gross - discAmt).
+  const netPrice = (p: { price: number; discountPercent?: number }) =>
+    p.discountPercent
+      ? Math.round(p.price - (p.price * p.discountPercent) / 100)
+      : p.price;
+
+  // Same category ordering logic as the Products page — driven by the
+  // admin-configured categories.sort_order, not filters.
+  const categories = useMemo(() => {
+    const orderByName = new Map(categoryList.map((c) => [c.name, c.sortOrder]));
+    const seen = new Set<string>();
+    const names: string[] = [];
+    products.forEach((p: any) => {
+      if (!seen.has(p.category)) {
+        seen.add(p.category);
+        names.push(p.category);
+      }
+    });
+    return names.sort((a, b) => {
+      const orderA = orderByName.has(a) ? orderByName.get(a)! : Number.MAX_SAFE_INTEGER;
+      const orderB = orderByName.has(b) ? orderByName.get(b)! : Number.MAX_SAFE_INTEGER;
+      return orderA - orderB;
+    });
+  }, [products, categoryList]);
+
+  // Group every product by category — no sidebar filters, everything shows.
+  const sections = useMemo(() => {
+    return categories
+      .map((c) => ({
+        category: c,
+        items: products.filter(
+          (p: any) =>
+            p.category === c &&
+            p.name.toLowerCase().includes(search.toLowerCase()),
+        ),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [categories, products, search]);
+
+  const totalCount = sections.reduce((sum, s) => sum + s.items.length, 0);
 
   const setQ = (id: string, v: number) =>
     setQty((prev) => ({ ...prev, [id]: Math.max(0, v) }));
 
-  const totalItems = Object.values(qty).reduce((s, n) => s + n, 0);
-  const totalAmount =
-    filtered.reduce((s, p) => s + (qty[p.id] || 0) * p.price, 0) +
-    products
-      .filter((p) => !filtered.find((f) => f.id === p.id))
-      .reduce((s, p) => s + (qty[p.id] || 0) * p.price, 0);
+  const totalItems = products.reduce((s, p) => s + displayQty(p.id), 0);
+  // Distinct product count — how many different products currently have a
+  // quantity entered (whether already in the cart or freshly typed here).
+  // This is what the "Items" summary and the floating cart badge show,
+  // not the summed-up quantity (totalItems).
+  const productsWithQty = products.filter((p) => displayQty(p.id) > 0).length;
+  const totalAmount = products.reduce(
+    (s, p) => s + displayQty(p.id) * netPrice(p),
+    0,
+  );
+  // Whether the user has actually changed any quantity this session (vs
+  // just viewing what's already in the cart) — used to enable/disable the
+  // floating "Add All to Cart" button, since totalItems/productsWithQty
+  // now include quantities already committed to the cart.
+  const hasPendingChanges = Object.entries(qty).some(
+    ([id, n]) => n !== (cartQtyMap[id] ?? 0),
+  );
+
+  const toggleCategory = (c: string) =>
+    setCollapsed((prev) => ({ ...prev, [c]: !prev[c] }));
+
+  // What the cart total is right now, including whatever's already in the
+  // cart from other pages — same figure Products.tsx/Checkout.tsx use.
+  const belowMinOrder = minOrderAmount > 0 && cartTotal < minOrderAmount;
 
   const addAllToCart = () => {
-    let added = 0;
-    Object.entries(qty).forEach(([id, n]) => {
+    const touched = Object.entries(qty).filter(
+      ([id, n]) => n !== (cartQtyMap[id] ?? 0),
+    );
+    if (touched.length === 0) {
+      return toast.error("Add quantity to at least one product");
+    }
+    touched.forEach(([id, n]) => {
       const p = products.find((x) => x.id === id);
-      if (p && n > 0) {
-        for (let i = 0; i < n; i++) add(p);
-        added += n;
-      }
+      if (p) updateQty(id, n, p);
     });
-    if (added === 0) return toast.error("Add quantity to at least one product");
-    toast.success(`Added ${added} item${added > 1 ? "s" : ""} to cart`);
+    const addedCount = touched.reduce((s, [, n]) => s + n, 0);
+    toast.success(`Added ${addedCount} item${addedCount > 1 ? "s" : ""} to cart`);
+    // Clear local overrides only — rows now fall back to the updated
+    // cartQtyMap, so already-added products keep showing their real
+    // quantity instead of resetting to 0.
     setQty({});
     setOpen(true);
   };
 
-  const resetAll = () => setQty({});
+  let runningCode = 0;
+  // Separate counter for the mobile card list so numbering stays in sync
+  // with the desktop table even though they're two different render
+  // passes over the same `sections` data.
+  let runningCodeMobile = 0;
+
+  // Small reusable qty stepper so the desktop table and the mobile card
+  // list render an identical control without duplicating the JSX.
+  const QtyStepper = ({ id, q }: { id: string; q: number }) => (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => setQ(id, q - 1)}
+        disabled={q === 0}
+        className="w-8 h-8 shrink-0 rounded-full border border-slate-300 grid place-items-center hover:bg-slate-100 disabled:opacity-30 bg-white"
+      >
+        <Minus className="w-3 h-3" />
+      </button>
+      <input
+        type="number"
+        min={0}
+        value={q === 0 ? "" : q}
+        placeholder="0"
+        onChange={(e) =>
+          setQ(id, e.target.value === "" ? 0 : parseInt(e.target.value, 10) || 0)
+        }
+        onFocus={(e) => e.target.select()}
+        className="w-12 h-8 text-center rounded-lg border border-slate-300 bg-white text-sm"
+      />
+      <button
+        onClick={() => setQ(id, q + 1)}
+        className="w-8 h-8 shrink-0 rounded-full border border-slate-300 grid place-items-center hover:bg-slate-100 bg-white"
+      >
+        <Plus className="w-3 h-3" />
+      </button>
+    </div>
+  );
 
   return (
     <Layout>
-      <section className="section-pad !pt-10">
+      <section className="!pt-6 !pb-24">
         <div className="container-festive">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-10"
+          {/* Sticky summary + minimum-order notice — stays visible while
+              scrolling through the long product table below. Positioned
+              just under the fixed navbar (76px tall, see Layout.tsx). */}
+          <div
+            ref={barRef}
+            className={`fixed top-[76px] left-0 right-0 z-40 bg-white shadow-sm px-4 sm:px-6 lg:px-8 transition-all duration-200 ${
+              scrolled ? "pt-1 pb-1" : "pt-2 pb-2"
+            }`}
           >
-            <span className="text-primary font-semibold text-sm flex items-center justify-center gap-2">
-              <Zap className="w-4 h-4" /> Bulk Order
-            </span>
-            <h1 className="font-display text-4xl md:text-6xl font-bold mt-2">
-              Quick <span className="text-gradient-festive">Order</span>
-            </h1>
-            <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
-              Enter quantities for multiple products at once and add them all to
-              your cart in one go.
-            </p>
-          </motion.div>
-
-          <div className="grid lg:grid-cols-[280px_1fr] gap-6">
-            {/* Sidebar filters */}
-            <aside className="glass-card rounded-3xl p-6 h-fit lg:sticky lg:top-28">
-              <div className="flex items-center gap-2 mb-4">
-                <SlidersHorizontal className="w-4 h-4 text-primary" />
-                <h3 className="font-display font-semibold">Filters</h3>
-              </div>
-
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Category
-              </h4>
-              <div className="flex flex-col gap-1 mb-6">
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCat(c)}
-                    className={`text-left px-3 py-2 rounded-xl text-sm transition border ${
-                      cat === c
-                        ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
-                        : "border-transparent hover:bg-primary/5"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Max Price
-              </h4>
-              <input
-                type="range"
-                min={50}
-                max={2000}
-                step={10}
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(+e.target.value)}
-                className="w-full accent-primary"
-              />
-              <div className="flex justify-between text-xs text-muted-foreground mb-6">
-                <span>₹0</span>
-                <span>₹{maxPrice}</span>
-              </div>
-
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Sort By
-              </h4>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as any)}
-                className="input-glow text-sm py-2 mb-6"
+            <div
+              className={`max-w-screen-xl mx-auto rounded-2xl bg-amber-100 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3 transition-all duration-200 ${
+                scrolled ? "px-3 py-2 mb-1" : "px-4 sm:px-6 py-4 mb-2"
+              }`}
+            >
+              <p
+                className={`font-semibold text-slate-800 whitespace-nowrap transition-all duration-200 ${
+                  scrolled ? "text-xs" : "text-base"
+                }`}
               >
-                {sorts.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-
-              <button
-                onClick={resetAll}
-                className="w-full text-sm py-2 rounded-xl border hover:bg-primary/5 transition"
+                Total Products : {totalCount}
+              </p>
+              <div
+                className={`relative w-full transition-all duration-200 ${
+                  scrolled ? "sm:w-48" : "sm:w-72"
+                }`}
               >
-                Reset Quantities
-              </button>
-            </aside>
-
-            {/* Quick order table */}
-            <div>
-              <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search products…"
-                    className="input-glow !pl-11"
-                  />
-                </div>
-                <div className="glass-card rounded-xl px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-                  {filtered.length} products
-                </div>
+                <Search
+                  className={`absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-all duration-200 ${
+                    scrolled ? "w-3.5 h-3.5" : "w-4 h-4"
+                  }`}
+                />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={scrolled ? "Search…" : "Search products…"}
+                  className={`w-full pl-9 pr-3 rounded-lg border border-slate-300 bg-white outline-none focus:ring-2 focus:ring-primary/30 transition-all duration-200 ${
+                    scrolled ? "py-1 text-xs" : "py-2 text-sm"
+                  }`}
+                />
               </div>
+              <p
+                className={`font-semibold text-slate-800 whitespace-nowrap transition-all duration-200 ${
+                  scrolled ? "text-xs" : "text-base"
+                }`}
+              >
+                Overall Total: ₹{totalAmount}
+              </p>
+            </div>
 
-              {loading ? (
-                <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
-                  Loading products…
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
-                  No products match your filters.
-                </div>
-              ) : (
-                <div className="glass-card rounded-3xl overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-primary/5 text-xs uppercase tracking-wider text-muted-foreground">
-                        <tr>
-                          <th className="text-left px-4 py-3">Product</th>
-                          <th className="text-left px-4 py-3 hidden sm:table-cell">
-                            Category
-                          </th>
-                          <th className="text-right px-4 py-3">Price</th>
-                          <th className="text-center px-4 py-3 w-40">Qty</th>
-                          <th className="text-right px-4 py-3">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filtered.map((p) => {
-                          const q = qty[p.id] || 0;
-                          return (
-                            <tr
-                              key={p.id}
-                              className="border-t border-border/50 hover:bg-primary/5 transition"
-                            >
-                              <td className="px-4 py-3">
-                                <div className="flex items-center gap-3">
+            {/* Same minimum-order notice the Products page shows, driven by
+                VITE_MIN_ORDER_AMOUNT. Informational only — it doesn't block
+                adding to cart, just like the rest of the site. Hidden once
+                shrunk so the compact bar stays a single tight strip. */}
+            {belowMinOrder && !scrolled && (
+              <p className="text-xs text-destructive text-center max-w-screen-xl mx-auto">
+                Minimum order amount is ₹{minOrderAmount}. Your cart currently has ₹{cartTotal} — add ₹{minOrderAmount - cartTotal} more to be able to checkout.
+              </p>
+            )}
+          </div>
+
+          {/* Spacer — reserves exactly as much space as the fixed bar above
+              actually takes up, so the product list starts right after it
+              instead of being covered by it. */}
+          <div style={{ height: barHeight }} />
+
+          {loading ? (
+            <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
+              Loading products…
+            </div>
+          ) : sections.length === 0 ? (
+            <div className="glass-card rounded-3xl p-12 text-center text-muted-foreground">
+              <p className="mb-4">No products found.</p>
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+                >
+                  Clear search
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* ---------- DESKTOP / TABLET: table (md and up) ---------- */}
+              <div className="hidden md:block rounded-b-2xl border border-slate-200 overflow-x-auto">
+                <div className="min-w-[720px]">
+                  <div className="grid grid-cols-[70px_90px_1fr_120px_170px_110px] bg-slate-200 text-sm font-semibold text-slate-700">
+                    <div className="px-4 py-3">Code</div>
+                    <div className="px-4 py-3">Image</div>
+                    <div className="px-4 py-3">Product Name</div>
+                    <div className="px-4 py-3 text-center">Price</div>
+                    <div className="px-4 py-3 text-center">Quantity</div>
+                    <div className="px-4 py-3 text-right">Total</div>
+                  </div>
+
+                  {sections.map((section) => {
+                    const isCollapsed = collapsed[section.category];
+                    return (
+                      <div key={section.category}>
+                        <button
+                          onClick={() => toggleCategory(section.category)}
+                          className="w-full flex items-center justify-between bg-primary text-primary-foreground px-4 py-3 text-sm font-semibold uppercase tracking-wide"
+                        >
+                          <span>
+                            {section.category} ({section.items.length})
+                          </span>
+                          {isCollapsed ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronUp className="w-4 h-4" />
+                          )}
+                        </button>
+
+                        {!isCollapsed &&
+                          section.items.map((p, i) => {
+                            runningCode += 1;
+                            const q = displayQty(p.id);
+                            const price = netPrice(p);
+                            const rowBg = i % 2 === 0 ? "bg-slate-100" : "bg-white";
+                            return (
+                              <div
+                                key={p.id}
+                                className={`grid grid-cols-[70px_90px_1fr_120px_170px_110px] items-center border-t border-slate-200 ${rowBg}`}
+                              >
+                                <div className="px-4 py-3 text-sm text-slate-500">
+                                  {runningCode}
+                                </div>
+                                <div className="px-4 py-3">
                                   <img
                                     src={p.image}
                                     alt={p.name}
-                                    className="w-12 h-12 object-contain rounded-lg bg-white/60"
+                                    className="w-14 h-14 object-contain rounded-lg bg-white border border-slate-200"
                                   />
-                                  <div>
-                                    <p className="font-medium">{p.name}</p>
-                                    {p.badge && (
-                                      <span className="text-[10px] text-primary font-semibold">
-                                        {p.badge}
+                                </div>
+                                <div className="px-4 py-3">
+                                  <p className="font-semibold text-slate-800">{p.name}</p>
+                                  {p.badge && (
+                                    <span className="text-[10px] text-primary font-semibold">
+                                      {p.badge}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="px-4 py-3 text-center">
+                                  {p.discountPercent ? (
+                                    <>
+                                      <p className="text-xs text-slate-400 line-through">
+                                        ₹{p.price}
+                                      </p>
+                                      <p className="text-sm font-semibold text-primary">
+                                        ₹{price}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      ₹{price}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="px-4 py-3">
+                                  <div className="flex items-center justify-center">
+                                    <QtyStepper id={p.id} q={q} />
+                                  </div>
+                                </div>
+                                <div className="px-4 py-3 text-right font-semibold text-slate-800">
+                                  ₹{q * price}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ---------- MOBILE: stacked cards (below md), no side-scroll ---------- */}
+              <div className="md:hidden rounded-2xl border border-slate-200 overflow-hidden">
+                {sections.map((section) => {
+                  const isCollapsed = collapsed[section.category];
+                  return (
+                    <div key={section.category}>
+                      <button
+                        onClick={() => toggleCategory(section.category)}
+                        className="w-full flex items-center justify-between bg-primary text-primary-foreground px-4 py-3 text-sm font-semibold uppercase tracking-wide"
+                      >
+                        <span>
+                          {section.category} ({section.items.length})
+                        </span>
+                        {isCollapsed ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronUp className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      {!isCollapsed &&
+                        section.items.map((p, i) => {
+                          runningCodeMobile += 1;
+                          const q = displayQty(p.id);
+                          const price = netPrice(p);
+                          const rowBg = i % 2 === 0 ? "bg-slate-100" : "bg-white";
+                          return (
+                            <div
+                              key={p.id}
+                              className={`border-t border-slate-200 px-3 py-3 ${rowBg}`}
+                            >
+                              <div className="flex gap-3">
+                                <span className="shrink-0 text-xs text-slate-400 font-medium w-4 pt-1">
+                                  {runningCodeMobile}
+                                </span>
+                                <img
+                                  src={p.image}
+                                  alt={p.name}
+                                  className="w-16 h-16 shrink-0 object-contain rounded-lg bg-white border border-slate-200"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-semibold text-slate-800 text-sm leading-tight break-words">
+                                    {p.name}
+                                  </p>
+                                  {p.badge && (
+                                    <span className="text-[10px] text-primary font-semibold">
+                                      {p.badge}
+                                    </span>
+                                  )}
+                                  <div className="mt-1 flex items-center gap-2">
+                                    {p.discountPercent ? (
+                                      <>
+                                        <span className="text-xs text-slate-400 line-through">
+                                          ₹{p.price}
+                                        </span>
+                                        <span className="text-sm font-semibold text-primary">
+                                          ₹{price}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <span className="text-sm font-semibold text-slate-800">
+                                        ₹{price}
                                       </span>
                                     )}
                                   </div>
                                 </div>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                                {p.category}
-                              </td>
-                              <td className="px-4 py-3 text-right font-medium">
-                                ₹{p.price}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex items-center justify-center gap-1">
-                                  <button
-                                    onClick={() => setQ(p.id, q - 1)}
-                                    className="w-8 h-8 rounded-full grid place-items-center hover:bg-primary/10 disabled:opacity-30"
-                                    disabled={q === 0}
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    value={q}
-                                    onChange={(e) =>
-                                      setQ(p.id, +e.target.value || 0)
-                                    }
-                                    className="w-14 h-8 text-center rounded-lg border bg-background text-sm"
-                                  />
-                                  <button
-                                    onClick={() => setQ(p.id, q + 1)}
-                                    className="w-8 h-8 rounded-full grid place-items-center hover:bg-primary/10"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-right font-semibold text-primary">
-                                {q > 0 ? `₹${q * p.price}` : "—"}
-                              </td>
-                            </tr>
+                              </div>
+
+                              <div className="mt-3 flex items-center justify-between pl-7">
+                                <QtyStepper id={p.id} q={q} />
+                                <span className="font-semibold text-slate-800 text-sm">
+                                  ₹{q * price}
+                                </span>
+                              </div>
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
-              {/* Sticky summary bar */}
-              <div className="mt-6 glass-card rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 sticky bottom-4 shadow-soft">
-                <div className="flex items-center gap-6">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase">
-                      Items
-                    </p>
-                    <p className="text-xl font-bold">{totalItems}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase">
-                      Total
-                    </p>
-                    <p className="text-xl font-bold text-primary">
-                      ₹{totalAmount}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={addAllToCart}
-                  disabled={totalItems === 0}
-                  className="btn-festive flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  Add All to Cart
-                </button>
+          {/* Add All to Cart — item/total summary strip under the table. */}
+          <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase">Items</p>
+                <p className="text-lg font-bold">{productsWithQty}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase">Total</p>
+                <p className="text-lg font-bold text-primary">₹{totalAmount}</p>
               </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Floating "Add All to Cart" — pinned top-right, below the navbar,
+          instead of bottom-right (bottom-right is already taken by the
+          site-wide cart icon + WhatsApp + scroll-to-top buttons). Smaller
+          on mobile so it doesn't crowd/overlap the sticky summary bar or
+          the WhatsApp/cart bubbles at the bottom. */}
+      <button
+        onClick={addAllToCart}
+        disabled={!hasPendingChanges}
+        className="fixed top-20 right-4 z-30 w-12 h-12 sm:top-24 sm:right-6 sm:w-16 sm:h-16 rounded-full bg-primary text-primary-foreground shadow-lg grid place-items-center hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
+      >
+        <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
+        {productsWithQty > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 sm:w-6 sm:h-6 grid place-items-center">
+            {productsWithQty}
+          </span>
+        )}
+      </button>
     </Layout>
   );
 };

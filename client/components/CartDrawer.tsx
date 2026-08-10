@@ -5,7 +5,7 @@ import { useCart } from "@/context/CartContext";
 import { SparkButton } from "./SparkButton";
 
 export const CartDrawer = () => {
-  const { items, isOpen, setOpen, updateQty, remove, total } = useCart();
+  const { items, isOpen, setOpen, updateQty, remove, total, minOrderAmount, meetsMinOrder } = useCart();
   const navigate = useNavigate();
 
   return (
@@ -64,7 +64,19 @@ export const CartDrawer = () => {
                   <span>Total</span>
                   <span className="text-gradient-festive font-display text-xl">₹{total}</span>
                 </div>
-                <SparkButton className="w-full justify-center" onClick={() => { setOpen(false); navigate("/checkout"); }}>
+                {/* VITE_MIN_ORDER_AMOUNT — if set and cart total is below it,
+                    block checkout from the cart drawer too, not just the
+                    Checkout page. */}
+                {minOrderAmount > 0 && !meetsMinOrder && (
+                  <p className="text-xs text-destructive text-center">
+                    Minimum order amount is ₹{minOrderAmount}. Add ₹{minOrderAmount - total} more to checkout.
+                  </p>
+                )}
+                <SparkButton
+                  className="w-full justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={minOrderAmount > 0 && !meetsMinOrder}
+                  onClick={() => { setOpen(false); navigate("/checkout"); }}
+                >
                   Checkout
                 </SparkButton>
               </div>
