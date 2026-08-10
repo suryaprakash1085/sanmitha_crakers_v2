@@ -140,6 +140,12 @@ const QuickOrder = () => {
   const hasPendingChanges = Object.entries(qty).some(
     ([id, n]) => n !== (cartQtyMap[id] ?? 0),
   );
+  // `totalAmount` already reflects what the cart total WOULD be after
+  // adding all pending quantities (it sums displayQty, which falls back to
+  // the real cart qty for untouched products), so we can check it directly
+  // against the minimum order amount to decide if "Add All to Cart" should
+  // be allowed yet.
+  const meetsMinOrder = minOrderAmount === 0 || totalAmount >= minOrderAmount;
 
   const toggleCategory = (c: string) =>
     setCollapsed((prev) => ({ ...prev, [c]: !prev[c] }));
@@ -154,6 +160,11 @@ const QuickOrder = () => {
     );
     if (touched.length === 0) {
       return toast.error("Add quantity to at least one product");
+    }
+    if (!meetsMinOrder) {
+      return toast.error(
+        `Minimum order amount is ₹${minOrderAmount}. Add ₹${minOrderAmount - totalAmount} more.`,
+      );
     }
     touched.forEach(([id, n]) => {
       const p = products.find((x) => x.id === id);
@@ -214,7 +225,8 @@ const QuickOrder = () => {
               just under the fixed navbar (76px tall, see Layout.tsx). */}
           <div
             ref={barRef}
-            className={`fixed top-[76px] left-0 right-0 z-40 bg-white px-4 sm:px-6 lg:px-8 transition-all duration-200 ${
+            style={{ top: navbarHeight }}
+            className={`fixed left-0 right-0 z-40 bg-white px-4 sm:px-6 lg:px-8 transition-all duration-200 ${
               scrolled ? "pt-1 pb-1" : "pt-2 pb-2"
             }`}
           >
@@ -500,8 +512,8 @@ const QuickOrder = () => {
           instead of overlapping it. */}
       <button
         onClick={addAllToCart}
-        disabled={!hasPendingChanges}
-        style={{ top: 76 + barHeight + 12 }}
+        disabled={!hasPendingChanges || !meetsMinOrder}
+        style={{ top: navbarHeight + barHeight + 12 }}
         className="fixed right-4 z-30 w-12 h-12 sm:right-6 sm:w-16 sm:h-16 rounded-full bg-primary text-primary-foreground shadow-lg grid place-items-center hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-[opacity,transform]"
       >
         <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
