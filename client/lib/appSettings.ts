@@ -382,6 +382,34 @@ export const useAboutSettings = () => {
   return v;
 };
 
+/**
+ * Fetches the real app-customization settings from the server (public DB values)
+ * and syncs them into the local store. Without this, visitors who've never
+ * loaded /admin/customization in their browser only ever see the hard-coded
+ * defaults (e.g. enableFireworks defaults to true) instead of what the admin
+ * actually configured. Call this once near the app root, for every visitor.
+ */
+export const useSyncAppSettingsFromServer = () => {
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/app-settings")
+      .then((res) => res.json())
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.data && Object.keys(res.data).length > 0) {
+          const merged = { ...defaults.app, ...res.data };
+          settingsStore.setApp(merged);
+        }
+      })
+      .catch(() => {
+        // Server unreachable — fall back to whatever is already in localStorage/defaults
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+};
+
 export const useApplyAppCustomization = () => {
   const v = useAppCustomization();
   useEffect(() => {

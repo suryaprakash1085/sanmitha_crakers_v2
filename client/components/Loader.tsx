@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useCompany } from "@/hooks/useCompany";
 
 export const Loader = () => {
+  const { company } = useCompany();
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
 
@@ -25,8 +27,16 @@ export const Loader = () => {
     <div className="fixed inset-0 z-[100] grid place-items-center bg-sky-festive">
       <div className="text-center">
         <div className="relative inline-block mb-6">
-          <div className="w-20 h-20 rounded-full bg-festive grid place-items-center shadow-soft animate-burst">
-            <Sparkles className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 rounded-full bg-festive grid place-items-center shadow-soft animate-burst overflow-hidden">
+            {company.logo ? (
+              <img
+                src={company.logo}
+                alt={company.company_name || "Logo"}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Sparkles className="w-10 h-10 text-white" />
+            )}
           </div>
           <div className="absolute inset-0 rounded-full bg-festive blur-2xl opacity-60 -z-10 animate-pulse" />
           {/* burst rays */}
@@ -42,14 +52,19 @@ export const Loader = () => {
             />
           ))}
         </div>
-        <h2 className="font-display text-3xl font-bold text-gradient-festive mb-3">Fire Crackers</h2>
+        <h2 className="font-display text-3xl font-bold text-primary mb-1 uppercase tracking-tight">
+          {company.company_name || "Fire Crackers"}
+        </h2>
+        <p className="text-xs font-semibold tracking-[0.25em] text-primary mb-3">
+          FIREWORKS
+        </p>
         <div className="w-64 h-2 rounded-full bg-white/60 overflow-hidden shadow-card-festive">
           <div
             className="h-full bg-festive transition-all duration-300"
             style={{ width: `${progress}%`, boxShadow: "0 0 20px hsl(var(--primary))" }}
           />
         </div>
-        <p className="text-sm text-muted-foreground mt-3">Loading the festival… {Math.floor(progress)}%</p>
+        <p className="text-sm font-medium text-primary/80 mt-3">Loading the festival… {Math.floor(progress)}%</p>
       </div>
     </div>
   );

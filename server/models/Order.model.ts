@@ -10,7 +10,13 @@ async function nextOrderNumber() {
 }
 
 const itemsTotal = (items: OrderItemInput[] = []) =>
-  items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+  Math.round(
+    items.reduce((sum, it) => {
+      const gross = (Number(it.price) || 0) * (Number(it.quantity) || 0);
+      const disc = it.discount_percent ? (gross * Number(it.discount_percent)) / 100 : 0;
+      return sum + (gross - disc);
+    }, 0),
+  );
 
 export const OrderModel = {
   async findAll(filters: { search?: string; status?: string; from?: string; to?: string; category?: string } = {}) {

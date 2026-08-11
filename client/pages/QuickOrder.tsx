@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { useCart } from "@/context/CartContext";
-import { Search, Minus, Plus, ShoppingCart, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, Minus, Plus, ShoppingCart, ChevronUp, ChevronDown, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 const QuickOrder = () => {
@@ -11,6 +11,10 @@ const QuickOrder = () => {
   const { categories: categoryList } = useCategories();
   const { updateQty, items: cartItems, setOpen, minOrderAmount, total: cartTotal } = useCart();
   const [search, setSearch] = useState("");
+  // "All" shows every category (unfiltered, existing behaviour). Selecting
+  // a chip narrows the table/cards down to just that category — search
+  // still applies on top of it.
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   // qty only holds quantities the user has actively changed in THIS table
   // (typed or +/-). Anything not touched falls back to the product's real
   // cart quantity via cartQtyMap below, so rows for products already in
@@ -104,9 +108,15 @@ const QuickOrder = () => {
     });
   }, [products, categoryList]);
 
-  // Group every product by category — no sidebar filters, everything shows.
+  // Group every product by category. When a category chip is selected,
+  // every other category is dropped entirely instead of just hiding its
+  // products, so collapsed/expanded state on other sections doesn't matter.
   const sections = useMemo(() => {
-    return categories
+    const visibleCategories =
+      selectedCategory === "All"
+        ? categories
+        : categories.filter((c) => c === selectedCategory);
+    return visibleCategories
       .map((c) => ({
         category: c,
         items: products.filter(
@@ -116,7 +126,7 @@ const QuickOrder = () => {
         ),
       }))
       .filter((section) => section.items.length > 0);
-  }, [categories, products, search]);
+  }, [categories, products, search, selectedCategory]);
 
   const totalCount = sections.reduce((sum, s) => sum + s.items.length, 0);
 
@@ -216,6 +226,38 @@ const QuickOrder = () => {
     </div>
   );
 
+  // Mobile-only qty stepper — pill shaped, primary-colored buttons instead
+  // of the neutral grey desktop stepper, sized a touch bigger for touch
+  // targets and to match the more premium mobile card treatment below.
+  const QtyStepperMobile = ({ id, q }: { id: string; q: number }) => (
+    <div className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 p-1">
+      <button
+        onClick={() => setQ(id, q - 1)}
+        disabled={q === 0}
+        className="w-7 h-7 shrink-0 rounded-full grid place-items-center bg-white text-slate-600 shadow-sm active:scale-95 disabled:opacity-30 disabled:active:scale-100 transition"
+      >
+        <Minus className="w-3.5 h-3.5" />
+      </button>
+      <input
+        type="number"
+        min={0}
+        value={q === 0 ? "" : q}
+        placeholder="0"
+        onChange={(e) =>
+          setQ(id, e.target.value === "" ? 0 : parseInt(e.target.value, 10) || 0)
+        }
+        onFocus={(e) => e.target.select()}
+        className="w-9 h-7 text-center rounded-full bg-transparent text-sm font-semibold text-slate-800 outline-none"
+      />
+      <button
+        onClick={() => setQ(id, q + 1)}
+        className="w-7 h-7 shrink-0 rounded-full grid place-items-center bg-primary text-primary-foreground shadow-sm active:scale-95 transition"
+      >
+        <Plus className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+
   return (
     <Layout>
       <section className="!pt-6 !pb-24">
@@ -268,6 +310,36 @@ const QuickOrder = () => {
               >
                 Overall Total: ₹{totalAmount}
               </p>
+            </div>
+
+            {/* Category filter — plain <select> dropdown instead of a chip
+                row, so it never gets clipped by the sticky bar's edge and
+                takes up one fixed-height line regardless of how many
+                categories there are. Sits inside barRef, so the
+                ResizeObserver above picks up the height automatically and
+                the spacer/floating button stay correctly positioned. */}
+            <div
+              className={`max-w-screen-xl mx-auto transition-all duration-200 ${
+                scrolled ? "pb-1" : "pb-2"
+              }`}
+            >
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className={`rounded-lg border border-slate-300 bg-white text-slate-700 font-semibold outline-none focus:ring-2 focus:ring-primary/30 transition-all duration-200 ${
+                  scrolled ? "py-1 text-xs" : "py-1.5 text-sm"
+                }`}
+              >
+                <option value="All">All Categories ({products.length})</option>
+                {categories.map((c) => {
+                  const count = products.filter((p: any) => p.category === c).length;
+                  return (
+                    <option key={c} value={c}>
+                      {c} ({count})
+                    </option>
+                  );
+                })}
+              </select>
             </div>
 
             {/* Same minimum-order notice the Products page shows, driven by
@@ -400,18 +472,28 @@ const QuickOrder = () => {
                 </div>
               </div>
 
-              {/* ---------- MOBILE: stacked cards (below md), no side-scroll ---------- */}
-              <div className="md:hidden rounded-2xl border border-slate-200 overflow-hidden">
+              {/* ---------- MOBILE: premium stacked cards (below md) ----------
+                  Each product is its own elevated card (rounded-2xl, soft
+                  shadow, thin border) instead of a flat table row, with a
+                  numbered chip, discount ribbon, larger imagery and a
+                  pill-shaped stepper — closer to a modern shopping-app feel
+                  than a squeezed-down desktop table. Cards that already have
+                  a quantity get a subtle primary-tinted ring so it's obvious
+                  at a glance what's already selected. */}
+              <div className="md:hidden space-y-5">
                 {sections.map((section) => {
                   const isCollapsed = collapsed[section.category];
                   return (
                     <div key={section.category}>
                       <button
                         onClick={() => toggleCategory(section.category)}
-                        className="w-full flex items-center justify-between bg-primary text-primary-foreground px-4 py-3 text-sm font-semibold uppercase tracking-wide"
+                        className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-4 py-3 text-sm font-semibold uppercase tracking-wide shadow-sm"
                       >
-                        <span>
-                          {section.category} ({section.items.length})
+                        <span className="flex items-center gap-1.5">
+                          {section.category}
+                          <span className="text-[11px] font-medium normal-case bg-white/20 rounded-full px-2 py-0.5">
+                            {section.items.length}
+                          </span>
                         </span>
                         {isCollapsed ? (
                           <ChevronDown className="w-4 h-4" />
@@ -420,64 +502,87 @@ const QuickOrder = () => {
                         )}
                       </button>
 
-                      {!isCollapsed &&
-                        section.items.map((p, i) => {
-                          runningCodeMobile += 1;
-                          const q = displayQty(p.id);
-                          const price = netPrice(p);
-                          const rowBg = i % 2 === 0 ? "bg-slate-100" : "bg-white";
-                          return (
-                            <div
-                              key={p.id}
-                              className={`relative border-t border-slate-200 pl-3 pr-2 py-3 ${rowBg}`}
-                            >
-                              {/* Number badge — small dark square chip, floats over the
-                                  top-left corner of the image like in the reference. */}
-                              <span className="absolute left-1 top-2 z-10 w-5 h-5 rounded bg-slate-700 text-white text-[11px] font-bold grid place-items-center">
-                                {runningCodeMobile}
-                              </span>
-
-                              <p className="font-semibold text-slate-800 text-sm leading-tight break-words pl-5">
-                                {p.name}
-                              </p>
-
-                              <div className="mt-1.5 flex items-center gap-2">
-                                <img
-                                  src={p.image}
-                                  alt={p.name}
-                                  className="w-14 h-14 shrink-0 object-contain rounded-lg bg-white border border-slate-200"
-                                />
-
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-baseline gap-1.5">
+                      {!isCollapsed && (
+                        <div className="mt-3 grid grid-cols-1 gap-3">
+                          {section.items.map((p) => {
+                            runningCodeMobile += 1;
+                            const q = displayQty(p.id);
+                            const price = netPrice(p);
+                            const active = q > 0;
+                            return (
+                              <div
+                                key={p.id}
+                                className={`relative rounded-2xl bg-white border p-3 shadow-sm transition-all duration-200 ${
+                                  active
+                                    ? "border-primary/40 ring-1 ring-primary/20 shadow-md"
+                                    : "border-slate-200"
+                                }`}
+                              >
+                                <div className="flex gap-3">
+                                  {/* Image block with numbered chip + discount ribbon */}
+                                  <div className="relative shrink-0">
+                                    <div className="w-20 h-20 rounded-xl bg-slate-50 border border-slate-100 grid place-items-center overflow-hidden">
+                                      <img
+                                        src={p.image}
+                                        alt={p.name}
+                                        className="w-full h-full object-contain p-1.5"
+                                      />
+                                    </div>
+                                    <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-slate-800 text-white text-[10px] font-bold grid place-items-center shadow">
+                                      {runningCodeMobile}
+                                    </span>
                                     {p.discountPercent ? (
-                                      <>
+                                      <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 shadow">
+                                        {p.discountPercent}% OFF
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  {/* Name, price, badge */}
+                                  <div className="min-w-0 flex-1 flex flex-col justify-between">
+                                    <div>
+                                      <p className="font-semibold text-slate-800 text-sm leading-snug line-clamp-2">
+                                        {p.name}
+                                      </p>
+                                      {p.badge && (
+                                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-semibold text-primary">
+                                          <Sparkles className="w-3 h-3" />
+                                          {p.badge}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5 mt-1">
+                                      <span className="text-base font-extrabold text-rose-500">
+                                        ₹{price}
+                                      </span>
+                                      {p.discountPercent ? (
                                         <span className="text-xs text-slate-400 line-through">
                                           ₹{p.price}
                                         </span>
-                                        <span className="text-[11px] text-emerald-600 font-medium">
-                                          {p.discountPercent}% off
-                                        </span>
-                                      </>
-                                    ) : null}
-                                  </div>
-                                  <span className="text-base font-bold text-rose-500">
-                                    ₹{price}
-                                  </span>
-                                  <div className="mt-1.5">
-                                    <QtyStepper id={p.id} q={q} />
+                                      ) : null}
+                                    </div>
                                   </div>
                                 </div>
 
-                                {/* Total — blue rounded pill pinned to the right edge,
-                                    matching the reference image. */}
-                                <span className="shrink-0 self-end mb-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5">
-                                  ₹{q * price}
-                                </span>
+                                {/* Footer: stepper on the left, running total pill on
+                                    the right — only lights up once qty > 0. */}
+                                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                                  <QtyStepperMobile id={p.id} q={q} />
+                                  <span
+                                    className={`rounded-full text-xs font-bold px-3 py-1.5 transition-colors ${
+                                      active
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-slate-100 text-slate-400"
+                                    }`}
+                                  >
+                                    ₹{q * price}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

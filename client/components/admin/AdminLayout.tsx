@@ -20,7 +20,7 @@ export const AdminLayout = ({ children }: { children: ReactNode }) => {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user) {
     return <Navigate to="/admin/login" replace />;
   }
 

@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { AccessControlController } from "../controllers/accessControl.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
+import { requireAuth } from "../middleware/auth.middleware";
 
 const router = Router();
 
 // All access-control routes require admin
-router.use(requireAdmin);
+router.use(requireAuth);
 
 // Roles
 router.get("/roles", AccessControlController.getRoles);

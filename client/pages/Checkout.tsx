@@ -15,6 +15,7 @@ import { buildInvoicePdf } from "@/lib/invoicePdf";
 import { buildLiveInvoiceCfg } from "@/lib/invoiceCompany";
 import { fetchProductDiscountMap } from "@/lib/productDiscounts";
 import { notifications } from "@/lib/notifications";
+import { api } from "@/lib/api";
 
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,33 @@ const [cityOpen, setCityOpen] = useState(false);
     const invoiceNo = `${pdfCfg.invoicePrefix || "INV"}-${Date.now().toString().slice(-6)}`;
     const countryName = countries.find(c => c.isoCode === form.country)?.name || "";
     const stateName = states.find(s => s.isoCode === form.state)?.name || "";
+
+    // Actually create the order in the backend before anything else — this
+    // was previously missing, so orders never reached the database even
+    // though a PDF was downloaded and a "success" toast was shown.
+    try {
+      await api.post("/orders", {
+        customer_name: form.name,
+        phone: form.phone,
+        address: [form.address, form.city, stateName, countryName, form.pincode].filter(Boolean).join(", "),
+        category: items[0]?.category,
+        total,
+        status: "Pending",
+        payment_method: "Pending",
+        order_date: new Date().toISOString().slice(0, 10),
+        items: items.map(i => ({
+          product_id: Number(i.id) || null,
+          product_name: i.name,
+          quantity: i.qty,
+          price: i.price,
+          discount_percent: discountMap.has(i.id) ? discountMap.get(i.id)! : (i.discountPercent || 0),
+        })),
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to place order. Please try again.");
+      setSubmitting(false);
+      return;
+    }
 
     const doc = buildInvoicePdf(pdfCfg, {
       invoiceNo,

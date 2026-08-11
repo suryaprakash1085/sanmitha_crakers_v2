@@ -58,7 +58,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const clear = () => setItems([]);
 
   const count = items.reduce((s, i) => s + i.qty, 0);
-  const total = items.reduce((s, i) => s + i.qty * i.price, 0);
+  // Net total after each item's own discount — must match the per-line
+  // "Amount" column shown on the invoice, not the gross qty*price sum.
+  const total = Math.round(
+    items.reduce((s, i) => {
+      const gross = i.qty * i.price;
+      const disc = i.discountPercent ? (gross * i.discountPercent) / 100 : 0;
+      return s + (gross - disc);
+    }, 0),
+  );
   const meetsMinOrder = total >= MIN_ORDER_AMOUNT;
 
   return (

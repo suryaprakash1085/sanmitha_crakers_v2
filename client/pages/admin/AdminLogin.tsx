@@ -17,19 +17,20 @@ export default function AdminLogin() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user && isAdmin) navigate("/admin");
-  }, [user, isAdmin, navigate]);
+    if (user) navigate("/admin");
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      let loggedInUser;
       if (mode === "signup") {
-        await adminAuth.signUp(email, password);
+        loggedInUser = await adminAuth.signUp(email, password);
         toast.success("Admin account created!");
       } else {
-        await adminAuth.signIn(email, password);
-        toast.success("Welcome back, admin!");
+        loggedInUser = await adminAuth.signIn(email, password);
+        toast.success(loggedInUser.role === "admin" ? "Welcome back, admin!" : `Welcome back, ${loggedInUser.name}!`);
       }
       navigate("/admin");
     } catch (err: any) {

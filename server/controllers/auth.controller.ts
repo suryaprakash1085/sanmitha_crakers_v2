@@ -34,8 +34,8 @@ export const AuthController = {
       if (existing) {
         return res.status(409).json({ success: false, error: "Email already exists" });
       }
-      // Only allow admin role creation for the admin signup flow.
-      const user = await UserModel.create({ email, password, name, role: role === "admin" ? "admin" : "admin" });
+      // Only allow admin role creation for the admin signup flow; everyone else defaults to customer.
+      const user = await UserModel.create({ email, password, name, role: role === "admin" ? "admin" : "customer" });
       const token = signToken({ id: user!.id, email: user!.email, role: user!.role });
       return res.status(201).json({
         success: true,

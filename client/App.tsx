@@ -34,13 +34,14 @@ import AdminAccessControl from "./pages/admin/AccessControl.tsx";
 import AdminReport from "./pages/admin/Report.tsx";
 import AdminContactSubmissions from "./pages/admin/ContactSubmissions.tsx";
 
-import { useApplyAppCustomization } from "@/lib/appSettings";
+import { useApplyAppCustomization, useSyncAppSettingsFromServer } from "@/lib/appSettings";
 
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith("/admin");
+  useSyncAppSettingsFromServer(); // pull real DB settings (fireworks/sparks/etc.) for every visitor, mobile included
   useApplyAppCustomization();
 
   return (

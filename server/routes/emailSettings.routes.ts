@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { EmailSettingsController } from "../controllers/emailSettings.controller";
-import { requireAdmin } from "../middleware/auth.middleware";
+import { requireAuth } from "../middleware/auth.middleware";
 
 const router = Router();
 
-router.get("/", requireAdmin, EmailSettingsController.get);
-router.post("/", requireAdmin, EmailSettingsController.create);
-router.put("/", requireAdmin, EmailSettingsController.update);
-router.post("/test", requireAdmin, EmailSettingsController.testConnection);
-router.post("/send-test", requireAdmin, EmailSettingsController.sendTestEmail);
+router.get("/", requireAuth, EmailSettingsController.get);
+router.post("/", requireAuth, EmailSettingsController.create);
+router.put("/", requireAuth, EmailSettingsController.update);
+router.post("/test", requireAuth, EmailSettingsController.testConnection);
+router.post("/send-test", requireAuth, EmailSettingsController.sendTestEmail);
 
 export default router;

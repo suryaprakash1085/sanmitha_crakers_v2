@@ -117,7 +117,16 @@ export default function Orders() {
 
   const filtered = useMemo(() => orders, [orders]);
 
-  const itemsTotal = (items: OrderItem[]) => items.reduce((s, it) => s + it.price * it.quantity, 0);
+  // Net total after each line's own discount — must match the per-line
+  // discounted amount shown on the invoice, not the gross price*qty sum.
+  const itemsTotal = (items: OrderItem[]) =>
+    Math.round(
+      items.reduce((s, it) => {
+        const gross = it.price * it.quantity;
+        const disc = it.discount_percent ? (gross * it.discount_percent) / 100 : 0;
+        return s + (gross - disc);
+      }, 0),
+    );
 
   const addOrderItem = () => {
     const product = products.find((p) => String(p.id) === pickProductId);
@@ -290,7 +299,7 @@ export default function Orders() {
         onSubmit={save}
         readOnly={modal.mode === "view"}
       >
-        {modal.item && (
+        {modal.item && modal.mode === "view" && (
           <div className="space-y-3">
             <div><Label>Customer</Label><p className="font-medium">{modal.item.customer_name}</p></div>
             <div><Label>Phone</Label><p>{modal.item.phone}</p></div>
@@ -299,7 +308,7 @@ export default function Orders() {
             <div>
               <Label>Products</Label>
               {modal.item.items && modal.item.items.length > 0 ? (
-                <div className="border rounded-md divide-y mt-1">
+                <div className="border rounded-md divide-y mt-1 max-h-64 overflow-y-auto">
                   {modal.item.items.map((it, i) => (
                     <div key={it.id ?? i} className="flex items-center justify-between px-3 py-1.5 text-sm">
                       <span>
@@ -319,36 +328,42 @@ export default function Orders() {
             <div><Label>Total</Label><p className="text-lg font-bold">₹{modal.item.total}</p></div>
             <div>
               <Label>Status</Label>
-              {modal.mode === "view" ? (
-                <Badge className={statusVariants[modal.item.status]}>{modal.item.status}</Badge>
-              ) : (
-                <Select value={editStatus} onValueChange={(v) => setEditStatus(v as Status)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                    <SelectItem value="Processing">Processing</SelectItem>
-                    <SelectItem value="Shipped">Shipped</SelectItem>
-                    <SelectItem value="Delivered">Delivered</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+              <Badge className={statusVariants[modal.item.status]}>{modal.item.status}</Badge>
             </div>
             <div>
               <Label>Payment Method</Label>
-              {modal.mode === "view" ? (
-                <Badge className={paymentMethodVariants[modal.item.payment_method || "Pending"]}>
-                  {modal.item.payment_method || "Pending"}
-                </Badge>
-              ) : (
-                <Select value={editPaymentMethod} onValueChange={(v) => setEditPaymentMethod(v as PaymentMethod)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {paymentMethodOptions.map((pm) => (
-                      <SelectItem key={pm} value={pm}>{pm}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Badge className={paymentMethodVariants[modal.item.payment_method || "Pending"]}>
+                {modal.item.payment_method || "Pending"}
+              </Badge>
+            </div>
+          </div>
+        )}
+
+        {modal.item && modal.mode === "edit" && (
+          <div className="space-y-3">
+            <div><Label>Order</Label><p className="font-medium">{modal.item.order_number} — {modal.item.customer_name}</p></div>
+            <div>
+              <Label>Status</Label>
+              <Select value={editStatus} onValueChange={(v) => setEditStatus(v as Status)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Processing">Processing</SelectItem>
+                  <SelectItem value="Shipped">Shipped</SelectItem>
+                  <SelectItem value="Delivered">Delivered</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Payment Method</Label>
+              <Select value={editPaymentMethod} onValueChange={(v) => setEditPaymentMethod(v as PaymentMethod)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {paymentMethodOptions.map((pm) => (
+                    <SelectItem key={pm} value={pm}>{pm}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         )}
