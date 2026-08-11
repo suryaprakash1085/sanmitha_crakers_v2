@@ -60,19 +60,8 @@ export default function AdminLogin() {
             {submitting ? "Please wait..." : mode === "login" ? "Login" : "Create Admin Account"}
           </Button>
         </form>
-        <p className="text-center text-sm text-muted-foreground mt-4">
-          {mode === "login" ? "First time? " : "Already have admin account? "}
-          <button
-            type="button"
-            className="text-primary underline"
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
-          >
-            {mode === "login" ? "Create admin account" : "Login"}
-          </button>
-        </p>
-        <p className="text-center text-xs text-muted-foreground mt-3">
-          Default: admin@firecrackers.com / admin123
-        </p>
+        
+       
       </Card>
     </div>
   );

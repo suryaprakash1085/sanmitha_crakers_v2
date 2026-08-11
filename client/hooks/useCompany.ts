@@ -81,3 +81,32 @@ export function useCompany() {
 
   return { company, loading };
 }
+
+/**
+ * Applies the company's name/logo to the browser tab (document.title +
+ * favicon). index.html is a static file so it can't know the company name
+ * or the uploaded logo at build time — this keeps the tab in sync with
+ * whatever is saved in Admin > Company, for every visitor.
+ * Mount this once near the app root.
+ */
+export function useApplyCompanyMeta() {
+  const { company } = useCompany();
+
+  useEffect(() => {
+    if (company.company_name) {
+      document.title = company.company_name;
+    }
+  }, [company.company_name]);
+
+  useEffect(() => {
+    if (!company.logo) return; // keep the static public/favicon.ico fallback until a logo is uploaded
+    let link = document.querySelector<HTMLLinkElement>("link#app-favicon");
+    if (!link) {
+      link = document.createElement("link");
+      link.id = "app-favicon";
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = company.logo;
+  }, [company.logo]);
+}

@@ -35,6 +35,7 @@ import AdminReport from "./pages/admin/Report.tsx";
 import AdminContactSubmissions from "./pages/admin/ContactSubmissions.tsx";
 
 import { useApplyAppCustomization, useSyncAppSettingsFromServer } from "@/lib/appSettings";
+import { useApplyCompanyMeta } from "@/hooks/useCompany";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const AppRoutes = () => {
   const isAdminRoute = location.pathname.startsWith("/admin");
   useSyncAppSettingsFromServer(); // pull real DB settings (fireworks/sparks/etc.) for every visitor, mobile included
   useApplyAppCustomization();
+  useApplyCompanyMeta(); // sync browser tab title + favicon with Admin > Company (name & logo)
 
   return (
     <>
