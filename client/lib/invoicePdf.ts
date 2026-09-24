@@ -163,7 +163,7 @@ export const buildInvoicePdf = (cfg: PdfSettings, data: InvoiceData): jsPDF => {
   });
 
   let fy = (doc as any).lastAutoTable.finalY + 3;
-  const totalQty = data.items.reduce((s, i) => s + i.qty, 0);
+  const totalQty = data.items.length;
 
   // Bottom content boundary — leave room for the footer note printed at
   // y=290 on every page. Any section that would spill past this line pushes

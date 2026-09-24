@@ -29,16 +29,29 @@ export const OrderItemModel = {
   },
 
   async createMany(orderId: number, items: OrderItemInput[] = []) {
-    const rows = items
-      .filter((it) => it.product_name?.trim() && it.quantity > 0)
-      .map((it) => ({
-        order_id: orderId,
-        product_id: it.product_id || null,
-        product_name: it.product_name.trim(),
-        quantity: it.quantity,
-        price: it.price || 0,
-        discount_percent: it.discount_percent || 0,
-      }));
+    const filtered = items.filter((it) => it.product_name?.trim() && it.quantity > 0);
+
+    // Customers' carts live in localStorage and can outlive the products
+    // they reference (a product may since have been deleted or re-seeded
+    // with a new id). Cross-check every incoming product_id against what
+    // actually exists right now and null out anything stale — otherwise a
+    // single dangling id blows up the whole insert with an FK violation
+    // (order_items_product_id_foreign) and the entire order is lost.
+    const candidateIds = [...new Set(filtered.map((it) => it.product_id).filter((id): id is number => !!id))];
+    let validIds = new Set<number>();
+    if (candidateIds.length) {
+      const found = await db("products").select("id").whereIn("id", candidateIds);
+      validIds = new Set(found.map((r: any) => r.id));
+    }
+
+    const rows = filtered.map((it) => ({
+      order_id: orderId,
+      product_id: it.product_id && validIds.has(it.product_id) ? it.product_id : null,
+      product_name: it.product_name.trim(),
+      quantity: it.quantity,
+      price: it.price || 0,
+      discount_percent: it.discount_percent || 0,
+    }));
     if (rows.length) await table().insert(rows);
     return this.findByOrderId(orderId);
   },
